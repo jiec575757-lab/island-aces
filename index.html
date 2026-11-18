@@ -7,8 +7,8 @@
   <meta name="description" content="像素切片战机，海岛自由飞行、三视角切换与空战。全部素材和代码在本地运行。">
   <title>海岛飞行队 · ISLAND ACES</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23f0580e' d='M15 2h2v11l12 8v4l-12-4v6l4 3H11l4-3v-6L3 25v-4l12-8z'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=1.6.0">
-  <link rel="stylesheet" href="flight-ui.css?v=1.6.0">
+  <link rel="stylesheet" href="style.css?v=1.6.1">
+  <link rel="stylesheet" href="flight-ui.css?v=1.6.1">
 </head>
 <body>
   <main id="flight" tabindex="0" aria-label="海岛飞行队游戏区域">
@@ -21,6 +21,7 @@
       <nav aria-label="游戏操作">
         <button id="combat-toggle" class="accent" title="C 切换模式">开始空战 <span>C</span></button>
         <button id="view-toggle" title="空格 切换镜头"><span class="view-symbol">▱</span><b id="view-label">俯视</b><span id="view-index">1/3</span></button>
+        <button id="tilt-toggle" aria-pressed="false" title="启用倾斜转向">倾斜 关</button>
         <button id="settings-toggle" title="打开飞行设置" aria-label="飞行设置">⚙</button>
         <button id="pause-toggle" title="P 暂停" aria-label="暂停游戏">Ⅱ</button>
         <button id="fullscreen-toggle" title="F 全屏" aria-label="切换全屏">⛶</button>
@@ -36,8 +37,7 @@
     <div class="ui radar-wrap" id="radar-wrap" hidden><canvas id="radar" width="112" height="112" aria-label="附近敌机雷达"></canvas><span id="radar-label">RADAR / 500 M</span></div>
     <p id="hint" class="ui hint">移动鼠标转向 · 单击翻滚 · 长按加速 · 空格切换视角</p>
     <div class="ui touch-controls" id="touch-controls" hidden>
-      <div class="touch-left"><div id="flight-stick" class="flight-stick" role="group" aria-label="飞行摇杆：后拉爬升，前推下降，左右转向，可斜向组合"><span class="stick-forward">前推 · 下降</span><span class="stick-left">◀</span><span class="stick-right">▶</span><span class="stick-back">后拉 · 爬升</span><i class="stick-ring"></i><i class="stick-knob"></i></div></div>
-      <button id="tilt-toggle" aria-pressed="false" title="授权并校准手机倾斜转向">启用倾斜</button>
+      <div class="touch-left"><div id="flight-stick" class="flight-stick" role="group" aria-label="飞行摇杆：后拉爬升，前推下降，左右转向，可斜向组合"><span class="stick-left">◀</span><span class="stick-right">▶</span><i class="stick-ring"></i><i class="stick-knob"></i></div></div>
       <div class="touch-right"><button id="touch-roll" aria-label="翻滚闪避">翻滚</button><button id="touch-boost" aria-label="按住推进器加速">加速</button></div>
     </div>
     <div class="ui shortcut-note" id="shortcut-note">H 隐藏界面</div>
@@ -48,7 +48,7 @@
       <section class="dialog result"><small>SORTIE COMPLETE</small><h1>本次出击结束</h1><div class="result-score" id="final-score">000000</div><p id="final-detail"></p><button id="restart" class="accent">再次出击 <span>Enter</span></button><button id="free-flight">返回自由飞行</button></section>
     </div>
     <div class="ui dialog-shade upgrade-screen" id="upgrade-screen" hidden>
-      <section class="upgrade-dialog" role="dialog" aria-modal="true" aria-labelledby="upgrade-title"><small>LEVEL UP / 三选一</small><h1 id="upgrade-title">升级 · 选择一项被动</h1><p id="upgrade-subtitle">战斗已暂停。相同被动可以再次选择升级。</p><div id="upgrade-choices" class="upgrade-choices"></div><div class="upgrade-actions"><button id="upgrade-refresh" type="button" aria-label="刷新三项增益，快捷键 R">↻ 刷新增益 <span>R</span></button><small>免费刷新 · 可重复使用</small></div><footer>点击卡片或按 1 / 2 / 3 · 死亡后本局重置</footer></section>
+      <section class="upgrade-dialog" role="dialog" aria-modal="true" aria-labelledby="upgrade-title"><h1 id="upgrade-title">升级 · 选择一项被动</h1><div id="upgrade-choices" class="upgrade-choices"></div><div class="upgrade-actions"><button id="upgrade-refresh" type="button" data-remaining="2" aria-label="重置增益 · 本级剩余 2 次" title="重置增益 · 本级剩余 2 次"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M20 12a8 8 0 1 0-2.3 5.7"/></svg></button></div></section>
     </div>
     <aside class="ui settings" id="settings" hidden aria-label="飞行设置">
       <div class="panel-head"><div><small>FLIGHT CONSOLE</small><h2>飞行设置</h2></div><button id="settings-close" aria-label="关闭设置">×</button></div>
@@ -92,7 +92,7 @@
           <label class="check"><input data-param="trails" type="checkbox">翼尖凝结尾迹</label><label class="check"><input data-param="shadow" type="checkbox">飞机投影</label>
         </fieldset>
         <fieldset><legend>音乐与声音</legend><label class="check"><input id="music" type="checkbox" checked>芯片背景音乐</label><label class="check"><input id="sound" type="checkbox" checked>引擎、武器与天气音效</label><label>主音量 <output id="volume-label">35%</output><input id="volume" type="range" min="0" max="100" value="35" step="5"></label></fieldset>
-        <section class="controls-help"><h3>操作手册</h3><p>鼠标移动转向 / WASD 或方向键飞行<br>空战默认追尾视角：自动开火　左键 / Q 翻滚<br>右键 / Shift 加速　空格切换视角<br>C 切换空战　P 暂停　F 全屏　H 隐藏界面</p><p>手机：横屏游玩，左下轮盘摇杆左右转向，后拉（往自己）爬升，前推下降，斜向可组合转弯与升降；右侧翻滚与加速。也可启用倾斜转向，摇杆操作时优先使用摇杆；手柄左摇杆飞行、A 翻滚、RT 加速。</p><p>空战：60 发弹药，初始每秒自动补充 3 发。敌人进入约 450 米、机头左右各约 25° 时自动开火，雷达被动可扩大射程和角度，无目标停火补弹。Q 翻滚初始无敌 0.45 秒、冷却 2.8 秒。碰撞与敌弹造成伤害；击败敌人获得经验，升级三选一，可点“刷新增益”或按 R 免费反复刷新，被动可重复升级。死亡后本局重置。自由飞行保留短按左键翻滚。</p></section>
+        <section class="controls-help"><h3>操作手册</h3><p>鼠标移动转向 / WASD 或方向键飞行<br>空战默认追尾视角：自动开火　左键 / Q 翻滚<br>右键 / Shift 加速　空格切换视角<br>C 切换空战　P 暂停　F 全屏　H 隐藏界面</p><p>手机：横屏游玩，左下轮盘摇杆左右转向，后拉（往自己）爬升，前推下降，斜向可组合转弯与升降；右侧翻滚与加速。右上角可开关倾斜转向，摇杆操作时优先使用摇杆；手柄左摇杆飞行、A 翻滚、RT 加速。</p><p>空战：60 发弹药，初始每秒自动补充 3 发。敌人进入约 450 米、机头左右各约 25° 时自动开火，雷达被动可扩大射程和角度，无目标停火补弹。Q 翻滚初始无敌 0.45 秒、冷却 2.8 秒。碰撞与敌弹造成伤害；击败敌人获得经验，升级三选一，可点重置图标或按 R，每级最多重置两次，被动可重复升级。死亡后本局重置。自由飞行保留短按左键翻滚。</p></section>
         <div class="panel-links"><a href="models.html" target="_blank" rel="noopener">模型与切片素材 ↗</a><a href="肉鸽玩法说明.md" target="_blank" rel="noopener">肉鸽玩法说明 ↗</a><a href="制作说明.md" target="_blank" rel="noopener">源码与制作工具说明 ↗</a></div>
         <small class="provenance">飞行场景基于 UI8 Forge 公开分享 fighter，保留来源记录。空战与本地界面为本项目扩展。</small>
       </div>
@@ -100,6 +100,6 @@
     </aside>
     <div id="boot" role="status"><span class="boot-plane">✦</span><strong>ISLAND ACES</strong><small>正在生成海岛与云层…</small></div>
   </main>
-  <script type="module" src="src/app.js?v=1.6.0"></script>
+  <script type="module" src="src/app.js?v=1.6.1"></script>
 </body>
 </html>

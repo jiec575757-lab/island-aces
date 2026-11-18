@@ -81,18 +81,23 @@ function fixture(){
 {
  const f=fixture();f.park();assert.equal(f.c.refreshUpgrades(),false)
  f.c.awardXP(185);const snapshot=f.c.state
- for(let i=0;i<20;i++){
+ assert.equal(f.c.state.refreshesRemaining,2)
+ for(let i=0;i<2;i++){
    const old=f.c.state.choices.map(u=>u.id);assert.equal(f.c.refreshUpgrades(),true)
    const s=f.c.state;assert.equal(s.choices.length,3);assert.equal(new Set(s.choices.map(u=>u.id)).size,3)
    assert.ok(s.choices.every(u=>!old.includes(u.id)),'All three refreshed options differ from the prior set')
+   assert.equal(s.refreshesRemaining,1-i)
    for(const key of ['level','xp','xpNext','pending','hp','ammo','elapsed'])assert.equal(s[key],snapshot[key],key)
    assert.deepEqual(s.ranks,snapshot.ranks);f.tick(1);assert.equal(f.c.state.elapsed,snapshot.elapsed)
  }
+ const exhausted=f.c.state;assert.equal(f.c.refreshUpgrades(),false);assert.deepEqual(f.c.state,exhausted)
  const chosen=f.c.state.choices[1];assert.equal(f.c.chooseUpgrade(chosen.id),true);assert.equal(f.c.state.ranks[chosen.id],1);assert.equal(f.c.state.pending,snapshot.pending-1)
- assert.equal(f.c.refreshUpgrades(),true,'A queued selection can also be refreshed')
+ assert.equal(f.c.state.refreshesRemaining,2,'The next queued level has its own two refreshes')
+ assert.equal(f.c.refreshUpgrades(),true);assert.equal(f.c.refreshUpgrades(),true);assert.equal(f.c.refreshUpgrades(),false)
  while(f.c.state.selecting)f.c.chooseUpgrade(f.c.state.choices[0].id)
  assert.equal(f.c.refreshUpgrades(),false);f.c.stop();assert.equal(f.c.refreshUpgrades(),false)
- checks.push('Unlimited free refresh replaces all three unique cards without changing XP, pending levels, ranks or frozen battle; queued selections refresh and applying one card spends exactly one pending level')
+ f.c.start();f.c.awardXP(f.c.state.xpNext);assert.equal(f.c.state.refreshesRemaining,2)
+ checks.push('Each level allows exactly two refreshes; third attempts change nothing; queued levels and fresh runs receive two new charges; XP, ranks and battle clocks stay fixed')
 }
 {
  const f=fixture();f.park();f.tick(2);assert.equal(f.c.requestRoll(),true);assert.equal(f.c.damage(30),false);f.tick(.5);assert.equal(f.p.rolling,true);assert.equal(f.c.damage(30),true);assert.equal(f.c.state.hp,70)

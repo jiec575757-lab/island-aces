@@ -1,4 +1,4 @@
-import { UPGRADES, upgradeById, deriveStats, xpRequired } from './upgrades.js?v=1.6.0'
+import { UPGRADES, upgradeById, deriveStats, xpRequired } from './upgrades.js?v=1.6.1'
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), angle=a=>a-Math.PI*2*Math.round(a/(Math.PI*2))
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)
 const segment=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy+(p.z-a.z)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);return Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t,p.z-a.z-dz*t)}
@@ -19,7 +19,7 @@ const TYPES_BY_STRENGTH=['fighter','fast','tank','striker','hunter','drone','gun
 const unlockedTypes=level=>TYPES_BY_STRENGTH.filter(type=>type==='fighter'||SPAWN_UNLOCKS[type]<=level)
 export const enemyGrowth=level=>({move:Math.min(2,1+.025*(level-1)),projectile:Math.min(1.9,1+.025*(level-1)),volley:Math.min(5,1+Math.floor((level-1)/6))})
 export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=true}={}){
-  let S={},actors=[],effects=[],ranks={},stats=deriveStats(),timers={},sequence=0,offers=[],pending=0,wingSlots=[],nextWave=0,manualFire=false
+  let S={},actors=[],effects=[],ranks={},stats=deriveStats(),timers={},sequence=0,offers=[],pending=0,refreshes=0,wingSlots=[],nextWave=0,manualFire=false
   const livingWings=()=>wingSlots.map(s=>s.actor).filter(a=>a&&!a.dead)
   let best=0;try{best=Number(localStorage.getItem('island-aces-best')||0)}catch{}
   const emit=(type,data={})=>onEvent(type,data)
@@ -62,20 +62,21 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
     nextWave=0;emit('wave',{wave:S.wave,level:S.level})
   }
   function start(){
-    actors=[];effects=[];ranks={};stats=deriveStats();timers={};sequence=0;offers=[];pending=0;wingSlots=[];nextWave=0;manualFire=false
+    actors=[];effects=[];ranks={};stats=deriveStats();timers={};sequence=0;offers=[];pending=0;refreshes=0;wingSlots=[];nextWave=0;manualFire=false
     S={active:true,over:false,hp:100,shield:0,score:0,kills:0,wave:1,level:1,xp:0,elapsed:0,firing:false,shotClock:0,ammo:60,recovery:0,grace:1.8,invulnerable:0,rollCooldown:0,cloak:0}
     scene.release?.();scene.restart?.();makeWave();sync()
   }
-  function stop(){save();S.active=false;S.over=false;S.firing=false;actors=[];effects=[];offers=[];pending=0;wingSlots=[];sync()}
+  function stop(){save();S.active=false;S.over=false;S.firing=false;actors=[];effects=[];offers=[];pending=0;refreshes=0;wingSlots=[];sync()}
   function offer(exclude=[]){
     if(!pending||offers.length)return
+    if(!exclude.length)refreshes=2
     const pool=UPGRADES.filter(u=>!exclude.includes(u.id));offers=[]
     for(let i=0;i<3;i++)offers.push(pool.splice(Math.floor(random()*pool.length),1)[0].id)
     S.firing=false;emit('upgrade',{level:S.level,choices:offers.slice()})
   }
   function refreshUpgrades(){
-    if(!S.active||S.over||!pending||!offers.length)return false
-    const previous=offers;offers=[];offer(previous);return true
+    if(!S.active||S.over||!pending||!offers.length||refreshes<=0)return false
+    const previous=offers;refreshes--;offers=[];offer(previous);return true
   }
   function awardXP(value){
     if(!S.active||S.over||value<=0)return
@@ -235,7 +236,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
   S={active:false,over:false,hp:100,shield:0,score:0,kills:0,wave:1,level:1,xp:0,elapsed:0,ammo:60,rollCooldown:0,invulnerable:0,cloak:0}
   return{start,stop,step,damage,requestRoll,chooseUpgrade,refreshUpgrades,awardXP,
     setFiring(v){manualFire=!!v;updateFiring()},
-    get state(){const wings=livingWings(),waiting=wingSlots.filter(s=>!s.actor||s.actor.dead).map(s=>Math.max(0,s.revive));return{...S,best,enemies:actors.filter(a=>a.hostile&&!a.dead).length,selecting:offers.length>0,choices:offers.map(id=>({...upgradeById[id],rank:(ranks[id]||0)+1})),pending,ranks:{...ranks},stats:{...stats},xpNext:xpRequired(S.level),timers:{...timers},ally:wings[0]?{hp:wings[0].hp,maxHp:wings[0].maxHp}:null,allies:wingSlots.map((s,i)=>({slot:i,hp:s.actor&&!s.actor.dead?s.actor.hp:0,maxHp:stats.wingHp,revive:Math.max(0,s.revive)})),allyRevive:waiting.length?Math.min(...waiting):0,unlocked:unlockedTypes(S.level)}},
+    get state(){const wings=livingWings(),waiting=wingSlots.filter(s=>!s.actor||s.actor.dead).map(s=>Math.max(0,s.revive));return{...S,best,enemies:actors.filter(a=>a.hostile&&!a.dead).length,selecting:offers.length>0,choices:offers.map(id=>({...upgradeById[id],rank:(ranks[id]||0)+1})),pending,refreshesRemaining:offers.length?refreshes:0,ranks:{...ranks},stats:{...stats},xpNext:xpRequired(S.level),timers:{...timers},ally:wings[0]?{hp:wings[0].hp,maxHp:wings[0].maxHp}:null,allies:wingSlots.map((s,i)=>({slot:i,hp:s.actor&&!s.actor.dead?s.actor.hp:0,maxHp:stats.wingHp,revive:Math.max(0,s.revive)})),allyRevive:waiting.length?Math.min(...waiting):0,unlocked:unlockedTypes(S.level)}},
     get targets(){return actors},get effects(){return effects},
   }
 }

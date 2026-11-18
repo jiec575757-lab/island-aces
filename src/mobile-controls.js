@@ -7,7 +7,7 @@ export function tiltAxis(beta,gamma,angle){
   return gamma*Math.cos(r)+beta*Math.sin(r)
 }
 export function createMobileControls(root,controls,clearInputs){
-  let enabled=false,baseline=null,angle=0,lastSample=0
+  let enabled=false,baseline=null,angle=0,lastSample=0,enabling=false
   const touch=()=>root.classList.contains('touch'),button=document.querySelector('#tilt-toggle')
   function reset(){baseline=null;controls.tiltTurn=0}
   function layout(){
@@ -18,14 +18,15 @@ export function createMobileControls(root,controls,clearInputs){
     reset();clearInputs()
   }
   async function enable(){
-    if(!touch())return
-    if(enabled){reset();return}
-    if(!window.DeviceOrientationEvent){button.textContent='使用摇杆';return}
+    if(!touch()||enabled||enabling)return
+    if(!window.DeviceOrientationEvent){button.title='此设备不支持倾斜转向';return}
+    enabling=true
     try{
-      if(typeof DeviceOrientationEvent.requestPermission==='function'&&await DeviceOrientationEvent.requestPermission()!=='granted'){button.textContent='使用摇杆';return}
-      enabled=true;button.textContent='校准倾斜';button.setAttribute('aria-pressed','true');reset()
-    }catch{button.textContent='使用摇杆'}
+      if(typeof DeviceOrientationEvent.requestPermission==='function'&&await DeviceOrientationEvent.requestPermission()!=='granted'){button.title='倾斜未授权，可继续使用摇杆';return}
+      enabled=true;button.textContent='倾斜 开';button.setAttribute('aria-pressed','true');button.title='关闭倾斜转向';reset()
+    }catch{button.title='倾斜未启用，可继续使用摇杆'}finally{enabling=false}
   }
+  function disable(){enabled=false;reset();button.textContent='倾斜 关';button.setAttribute('aria-pressed','false');button.title='启用倾斜转向'}
   window.addEventListener('deviceorientation',e=>{
     if(!enabled||!Number.isFinite(e.beta)||!Number.isFinite(e.gamma))return
     const value=tiltAxis(e.beta,e.gamma,angle)
@@ -33,7 +34,7 @@ export function createMobileControls(root,controls,clearInputs){
     const delta=value-baseline
     controls.tiltTurn=Math.abs(delta)<3?0:clamp(Math.sign(delta)*(Math.abs(delta)-3)/20,-1,1)
   })
-  button.addEventListener('click',enable)
+  button.addEventListener('click',()=>enabled?disable():enable())
   window.addEventListener('resize',layout);screen.orientation?.addEventListener('change',layout)
   document.addEventListener('visibilitychange',reset)
   layout()

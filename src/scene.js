@@ -8,7 +8,7 @@
 // Two views share one camera: the overhead sprite-stack view, and a chase view from behind
 // the jet. The camera slides between them, so the switch is a single continuous move.
 
-import { UNIT_MODELS, UNIT_STYLES } from './unit-models.js?v=1.6.0'
+import { UNIT_MODELS, UNIT_STYLES } from './unit-models.js?v=1.6.1'
 import { buildVoxelMesh } from './voxel-mesh.js'
 import { drawVoxelMesh } from './voxel-renderer.js'
 const combatMeshes=Object.fromEntries(Object.entries(UNIT_MODELS).map(([id,voxels])=>[id,buildVoxelMesh(voxels)]))
@@ -2096,10 +2096,10 @@ export function createScene(initial) {
     if(distance<.1){dx=x-vCx;dy=y-vCy;distance=Math.hypot(dx,dy);if(distance<.1){dx=0;dy=1;distance=1}}
     const visibleLength=clamp(distance,6,34),steps=Math.ceil(visibleLength)
     dx=dx/distance*visibleLength;dy=dy/distance*visibleLength
-    const rim=e.enemy?pack(76,30,25):pack(12,53,67)
-    const glow=e.enemy?pack(213,78,38):pack(48,169,184)
-    const body=e.enemy?pack(255,135,64):pack(153,248,240)
-    const core=e.enemy?pack(255,244,193):pack(248,255,238)
+    const rim=pack(76,24,25)
+    const glow=pack(211,45,38)
+    const body=pack(255,83,64)
+    const core=pack(255,229,202)
     const radius=e.enemy?Math.max(2,Math.min(4,Math.round(2+scale))):Math.max(1,Math.min(2,Math.round(scale)))
     for(let i=steps;i>=0;i--){
       const t=i/steps,z=depth+(tailDepth-depth)*t,px=x+dx*t,py=y+dy*t

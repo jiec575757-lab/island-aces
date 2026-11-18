@@ -80,4 +80,4 @@ function fixture(autoFire=false){
   w.setMode('fog');w.step(130);assert.equal(w.state.current,'fog');assert.equal(canvas.dataset.mode,'fog');assert.equal(w.setMode('bad'),false)
   checks.push('Weather cycles after 65 seconds, rain renders pixel drops, storms trigger thunder and fixed weather remains selected')
 }
-const report={version:'1.6.0',passed:true,checks};await writeFile(new URL('../artifacts/progression-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))
+const report={version:'1.6.1',passed:true,checks};await writeFile(new URL('../artifacts/progression-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))

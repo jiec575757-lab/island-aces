@@ -1,4 +1,4 @@
-import { UNIT_MODELS } from './unit-models.js?v=1.6.0'
+import { UNIT_MODELS } from './unit-models.js?v=1.6.1'
 import { buildVoxelMesh } from './voxel-mesh.js'
 import { drawVoxelMesh } from './voxel-renderer.js'
 const definitions=[

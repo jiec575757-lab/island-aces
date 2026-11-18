@@ -1,12 +1,12 @@
-import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.6.0'
+import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.6.1'
 import { createFlameLayer } from './flame-layer.js'
-import { createCombat } from './combat.js?v=1.6.0'
-import { upgradeById } from './upgrades.js?v=1.6.0'
-import { createPixelHud } from './pixel-hud.js?v=1.6.0'
-import { createMobileControls } from './mobile-controls.js?v=1.6.0'
-import { createFlightAudio } from './flight-audio.js?v=1.6.0'
-import { createWeather } from './weather.js?v=1.6.0'
-import { createFlightStick } from './flight-stick.js?v=1.6.0'
+import { createCombat } from './combat.js?v=1.6.1'
+import { upgradeById } from './upgrades.js?v=1.6.1'
+import { createPixelHud } from './pixel-hud.js?v=1.6.1'
+import { createMobileControls } from './mobile-controls.js?v=1.6.1'
+import { createFlightAudio } from './flight-audio.js?v=1.6.1'
+import { createWeather } from './weather.js?v=1.6.1'
+import { createFlightStick } from './flight-stick.js?v=1.6.1'
 
 const $ = id => document.getElementById(id)
 const root = $('flight'), world = $('world'), flame = $('flame'), ctx = world.getContext('2d', { alpha: false })
@@ -58,14 +58,15 @@ function roll(){if(paused)return;if(combat.state.active)combat.requestRoll();els
 function renderUpgrade(){
   const s=combat.state;$('upgrade-screen').hidden=!s.selecting;if(!s.selecting)return
   settings.hidden=true;$('pause-screen').hidden=true
-  $('upgrade-title').textContent=`等级 ${s.level} · 选择一项被动`
-  $('upgrade-subtitle').textContent=`战斗已暂停${s.pending>1?` · 还有 ${s.pending} 次升级`:''}。已有被动可以再次选择。`
+  $('upgrade-title').textContent=`等级 ${s.level-s.pending+1} · 选择一项被动`
+  const refresh=$('upgrade-refresh');refresh.disabled=s.refreshesRemaining===0;refresh.dataset.remaining=s.refreshesRemaining
+  refresh.title=`重置增益 · 本级剩余 ${s.refreshesRemaining} 次`;refresh.setAttribute('aria-label',refresh.title)
   const box=$('upgrade-choices');box.replaceChildren()
-  s.choices.forEach((u,i)=>{const b=document.createElement('button');b.className='upgrade-card';b.dataset.upgrade=u.id;b.innerHTML=`<small>0${i+1} / PASSIVE</small><strong>${u.name}</strong><em>${u.rank===1?'获得新被动':`Lv.${u.rank-1} → Lv.${u.rank}`}</em><p>${u.description}</p><span>选择升级 ↗</span>`;b.addEventListener('click',()=>selectUpgrade(u.id));box.append(b)})
+  s.choices.forEach(u=>{const b=document.createElement('button');b.className='upgrade-card';b.dataset.upgrade=u.id;b.innerHTML=`<strong>${u.name}</strong><em>${u.rank===1?'Lv.1':`Lv.${u.rank-1} → Lv.${u.rank}`}</em><p>${u.description}</p>`;b.addEventListener('click',()=>selectUpgrade(u.id));box.append(b)})
   box.firstElementChild?.focus({preventScroll:true})
 }
 function selectUpgrade(id){if(combat.chooseUpgrade(id)){clearInputs();renderUpgrade();updateCombatHud();last=performance.now();if(!combat.state.selecting)root.focus({preventScroll:true})}}
-function refreshUpgrades(){if(combat.refreshUpgrades())$('upgrade-refresh').focus({preventScroll:true})}
+function refreshUpgrades(){if(combat.refreshUpgrades()&&!$('upgrade-refresh').disabled)$('upgrade-refresh').focus({preventScroll:true})}
 $('upgrade-refresh').addEventListener('click',refreshUpgrades)
 function updateCombatHud(){
   const s=combat.state;if(!s.active)return
@@ -213,7 +214,7 @@ function setCombat(value) {
   }
   root.focus({preventScroll:true})
 }
-$('combat-toggle').addEventListener('click', () => {setCombat(!combat.state.active);if(touchScreen){mobile.enable();mobile.landscape()}})
+$('combat-toggle').addEventListener('click', () => {setCombat(!combat.state.active);if(touchScreen)mobile.landscape()})
 $('view-toggle').addEventListener('click', toggleView)
 $('settings-toggle').addEventListener('click', () => { settings.hidden = false })
 $('settings-close').addEventListener('click', () => { settings.hidden = true; root.focus({preventScroll:true}) })
