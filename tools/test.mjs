@@ -36,13 +36,25 @@ function fixture(){
  checks.push('Rotated phone pointer transform and tilt axes work in both landscape orientations')
 }
 {
- const p={x:0,y:0,z:110,yaw:0,pitch:0,speed:0},scene={get telemetry(){return p},groundAt(){return 0},setCombat(){},setCombatFlight(){}}
- const c=createCombat(scene);c.start();c.targets.forEach(a=>Object.assign(a,{x:600,y:-600,speed:0,shot:999,sam:999}));c.step(.02)
- assert.equal(c.state.firing,true);assert.ok(c.state.ammo<60&&c.effects.some(e=>e.kind==='bullet'&&!e.enemy))
- c.setFiring(false);assert.equal(c.state.firing,true)
+ const p={x:0,y:0,z:110,yaw:0,pitch:0,speed:0},events=[],scene={get telemetry(){return p},groundAt(){return 0},setCombat(){},setCombatFlight(){}}
+ const c=createCombat(scene,(type,data)=>events.push({type,...data}));c.start()
+ c.targets.forEach(a=>Object.assign(a,{x:600,y:-600,speed:0,shot:999,sam:999}));const tick=n=>{for(let i=0;i<n;i++)c.step(.02)},shots=()=>events.filter(e=>e.type==='shot').length
+ tick(20);assert.equal(c.state.firing,false);assert.equal(c.state.ammo,60);assert.equal(shots(),0)
+ c.setFiring(true);tick(5);assert.equal(shots(),0,'Mouse state cannot force automatic fire into empty sky')
+ const t=c.targets[0],place=(bearing,d,z=110)=>Object.assign(t,{x:Math.sin(bearing)*d,y:-Math.cos(bearing)*d,z,hp:10000,maxHp:10000,hostile:true,dead:false})
+ for(const [bearing,d,z]of [[0,461,110],[Math.PI/2,100,110],[Math.PI,100,110],[.24,200,110],[-.24,200,110],[0,450,300]]){place(bearing,d,z);tick(6);assert.equal(c.state.firing,false);assert.equal(shots(),0,'Outside distance/front cone must not fire')}
+ place(0,459);tick(1);assert.equal(c.state.firing,true);assert.equal(shots(),1);assert.ok(c.state.ammo<60)
+ c.setFiring(false);assert.equal(c.state.firing,true,'Releasing controls preserves target-triggered fire')
+ place(0,200);tick(30);assert.ok(t.hp<10000,'In-range frontal cannon actually hits')
+ const ammo=c.state.ammo,shotCount=shots();place(Math.PI,100);tick(15);assert.equal(c.state.firing,false);assert.equal(shots(),shotCount);assert.ok(c.state.ammo>ammo,'Losing target stops fire and restores ammunition')
+ for(const bearing of [.22,-.22]){place(bearing,200);const before=shots();tick(6);assert.ok(shots()>before,'Both front-cone edges fire')}
+ place(0,200);t.hostile=false;const before=shots();tick(6);assert.equal(shots(),before);t.hostile=true;t.dead=true;tick(1);assert.equal(shots(),before)
+ // A closer side target must not hide the farther target in front; yaw wraps at ±π.
+ const live=c.targets.find(a=>a.hostile&&!a.dead),side=c.targets.find(a=>a!==live);Object.assign(side,{x:60,y:0,z:110});Object.assign(live,{x:0,y:-300,z:110,hp:10000,maxHp:10000});tick(6);assert.ok(shots()>before)
+ Object.assign(live,{x:Math.sin(-Math.PI+.05)*200,y:-Math.cos(-Math.PI+.05)*200,z:110});p.yaw=Math.PI-.05;const wrapped=shots();tick(6);assert.ok(shots()>wrapped)
  c.awardXP(25);assert.equal(c.state.firing,false);const time=c.state.elapsed;c.step(.05);assert.equal(c.state.elapsed,time)
- c.chooseUpgrade(c.state.choices[0].id);assert.equal(c.state.firing,true)
- checks.push('Automatic cannon needs no input, survives release, freezes for upgrade and resumes after choice')
+ c.chooseUpgrade(c.state.choices[0].id);assert.equal(c.state.firing,true);c.stop();assert.equal(c.state.firing,false)
+ checks.push('Automatic cannon requires a live hostile in range and front cone; stops on loss, conserves ammo, handles wraparound and resumes after upgrade')
 }
 {
  const f=fixture(),angles=f.c.targets.map(a=>(Math.atan2(a.x,-a.y)+Math.PI*2)%(Math.PI*2)).sort((a,b)=>a-b)

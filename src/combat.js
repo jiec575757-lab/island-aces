@@ -11,10 +11,10 @@ export const ENEMIES={
   base:{name:'防空基地',hp:30,speed:0,damage:4,xp:45,scale:1,elite:true,model:'base',ground:true},
 }
 export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=true}={}){
-  let S={},actors=[],effects=[],ranks={},stats=deriveStats(),timers={},sequence=0,offers=[],pending=0,ally=null,allyRevive=0,nextWave=0
+  let S={},actors=[],effects=[],ranks={},stats=deriveStats(),timers={},sequence=0,offers=[],pending=0,ally=null,allyRevive=0,nextWave=0,manualFire=false
   let best=0;try{best=Number(localStorage.getItem('island-aces-best')||0)}catch{}
   const emit=(type,data={})=>onEvent(type,data)
-  const sync=()=>{scene.setCombat(actors,effects);scene.setCombatFlight?.(S.active?{speed:stats.speed,agility:stats.agility,shield:S.shield>0,invulnerable:S.invulnerable>0,cloaked:S.cloak>0}:null)}
+  const sync=()=>{updateFiring();scene.setCombat(actors,effects);scene.setCombatFlight?.(S.active?{speed:stats.speed,agility:stats.agility,shield:S.shield>0,invulnerable:S.invulnerable>0,cloaked:S.cloak>0}:null)}
   const blast=(p,size=6,kind='blast')=>effects.push({kind,x:p.x,y:p.y,z:p.z,size,life:.48,maxLife:.48})
   const save=()=>{if(S.score>best){best=S.score;try{localStorage.setItem('island-aces-best',String(best))}catch{}}}
   function landPos(p,min=130,bearing=p.yaw){
@@ -40,8 +40,8 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
     nextWave=0;emit('wave',{wave:S.wave,level:S.level})
   }
   function start(){
-    actors=[];effects=[];ranks={};stats=deriveStats();timers={};sequence=0;offers=[];pending=0;ally=null;allyRevive=0;nextWave=0
-    S={active:true,over:false,hp:100,shield:0,score:0,kills:0,wave:1,level:1,xp:0,elapsed:0,firing:autoFire,shotClock:0,ammo:60,recovery:0,grace:1.8,invulnerable:0,rollCooldown:0,cloak:0}
+    actors=[];effects=[];ranks={};stats=deriveStats();timers={};sequence=0;offers=[];pending=0;ally=null;allyRevive=0;nextWave=0;manualFire=false
+    S={active:true,over:false,hp:100,shield:0,score:0,kills:0,wave:1,level:1,xp:0,elapsed:0,firing:false,shotClock:0,ammo:60,recovery:0,grace:1.8,invulnerable:0,rollCooldown:0,cloak:0}
     scene.release?.();scene.restart?.();makeWave();sync()
   }
   function stop(){save();S.active=false;S.over=false;S.firing=false;actors=[];effects=[];offers=[];pending=0;ally=null;sync()}
@@ -68,7 +68,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
     const desired=Math.min(18,4+(S.level-1)+(S.wave-1)),count=actors.filter(a=>a.hostile&&!a.dead).length
     if(count===0&&!nextWave){nextWave=3;emit('clear',{wave:S.wave})}
     if(count>0)for(let i=count;i<desired;i++){const types=['fast','tank','hunter','drone','base'];const a=spawn(types[sequence%5]);if(a)actors.push(a)}
-    emit('chosen',{id,rank:ranks[id]});offer();if(!offers.length)S.firing=autoFire;sync();return true
+    emit('chosen',{id,rank:ranks[id]});offer();sync();return true
   }
   function damage(amount){
     if(!S.active||S.over||offers.length||S.grace>0||S.invulnerable>0)return false
@@ -88,7 +88,14 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
   function allyDamage(amount){if(!ally||ally.dead)return;ally.hp=Math.max(0,ally.hp-amount);if(ally.hp<=0){ally.dead=true;blast(ally,9);allyRevive=stats.wingRevive;emit('support',{text:'僚机被击落 / 正在重建'})}}
   function nearest(p,range=stats.autoRange,cone=Math.PI){
     let target=null,best=range
-    for(const a of actors){if(!a.hostile||a.dead)continue;const d=dist(p,a),bearing=Math.atan2(a.x-p.x,-(a.y-p.y));if(d<best&&Math.abs(angle(bearing-p.yaw))<=cone){target=a;best=d}}
+    for(const a of actors){if(!a.hostile||a.dead||a.hp<=0)continue;const d=dist(p,a),bearing=Math.atan2(a.x-p.x,-(a.y-p.y));if(d<best&&Math.abs(angle(bearing-p.yaw))<=cone){target=a;best=d}}
+    return target
+  }
+  function updateFiring(){
+    if(!S.active||S.over||offers.length){S.firing=false;return null}
+    // Keep the cannon's existing range and narrow aim assist; never spend ammo on empty sky.
+    const target=nearest(scene.telemetry,Math.max(450,stats.autoRange),.23)
+    S.firing=autoFire?!!target:manualFire
     return target
   }
   function projectile(p,target,{enemy=false,kind='bullet',speed=450,damage=stats.damage,life=2.4}={}){
@@ -122,7 +129,8 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
     S.shotClock=Math.max(-dt,S.shotClock-dt);S.ammo=Math.min(stats.ammoMax,S.ammo+stats.ammoRegen*dt);S.hp=Math.min(100,S.hp+stats.regen*dt)
     if(S.recovery>=6)S.shield=Math.min(stats.shieldMax,S.shield+stats.shieldRegen*dt)
     const p=scene.telemetry
-    if(S.firing&&S.shotClock<=0&&S.ammo>=1){const t=nearest(p,Math.max(450,stats.autoRange),.23);projectile(p,t,{speed:430+p.speed*.15});S.ammo--;S.shotClock+=1/stats.fireRate;emit('shot')}
+    const cannonTarget=updateFiring()
+    if(S.firing&&S.shotClock<=0&&S.ammo>=1){projectile(p,cannonTarget,{speed:430+p.speed*.15});S.ammo--;S.shotClock+=1/stats.fireRate;emit('shot')}
     support(dt,p)
     for(const a of actors){
       if(a.dead)continue
@@ -174,7 +182,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
   }
   S={active:false,over:false,hp:100,shield:0,score:0,kills:0,wave:1,level:1,xp:0,elapsed:0,ammo:60,rollCooldown:0,invulnerable:0,cloak:0}
   return{start,stop,step,damage,requestRoll,chooseUpgrade,awardXP,
-    setFiring(v){S.firing=!!(S.active&&!S.over&&!offers.length&&(autoFire||v))},
+    setFiring(v){manualFire=!!v;updateFiring()},
     get state(){return{...S,best,enemies:actors.filter(a=>a.hostile&&!a.dead).length,selecting:offers.length>0,choices:offers.map(id=>({...upgradeById[id],rank:(ranks[id]||0)+1})),pending,ranks:{...ranks},stats:{...stats},xpNext:xpRequired(S.level),timers:{...timers},ally:ally&&!ally.dead?{hp:ally.hp,maxHp:ally.maxHp}:null,allyRevive}},
     get targets(){return actors},get effects(){return effects},
   }

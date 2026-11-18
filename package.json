@@ -1,8 +1,14 @@
 {
   "name": "island-aces",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "private": true,
   "type": "module",
   "description": "海岛飞行队：像素切片飞行与空战",
-  "scripts": { "start": "node server.cjs", "test": "node tools/test.mjs && node tools/compare-reference.mjs", "export:models": "node tools/export-voxel.mjs && node tools/export-assets.mjs && node tools/export-unit-models.mjs", "test:browser": "node tools/browser-test.cjs", "build:pages": "node tools/build-pages.mjs" }
+  "scripts": {
+    "start": "node server.cjs",
+    "test": "node tools/test.mjs && node tools/compare-reference.mjs",
+    "export:models": "node tools/export-voxel.mjs && node tools/export-assets.mjs && node tools/export-unit-models.mjs",
+    "test:browser": "node tools/browser-test.cjs",
+    "build:pages": "node tools/build-pages.mjs"
+  }
 }
