@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#2468b4">
+  <meta name="description" content="像素切片战机，海岛自由飞行、三视角切换与空战。全部素材和代码在本地运行。">
+  <title>海岛飞行队 · ISLAND ACES</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23f0580e' d='M15 2h2v11l12 8v4l-12-4v6l4 3H11l4-3v-6L3 25v-4l12-8z'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="flight" tabindex="0" aria-label="海岛飞行队游戏区域">
+    <canvas id="world" aria-label="像素战机与海岛场景"></canvas>
+    <canvas id="flame" aria-hidden="true"></canvas>
+    <div id="damage-flash" aria-hidden="true"></div>
+    <header class="ui topbar">
+      <div class="identity"><span class="emblem" aria-hidden="true">✦</span><div><strong>ISLAND ACES</strong><small id="mode-label">海岛飞行队 / 自由飞行</small></div></div>
+      <nav aria-label="游戏操作">
+        <button id="combat-toggle" class="accent" title="C 切换模式">开始空战 <span>C</span></button>
+        <button id="view-toggle" title="空格 切换镜头"><span class="view-symbol">▱</span><b id="view-label">俯视</b><span id="view-index">1/3</span></button>
+        <button id="settings-toggle" title="打开飞行设置" aria-label="飞行设置">⚙</button>
+        <button id="pause-toggle" title="P 暂停" aria-label="暂停游戏">Ⅱ</button>
+        <button id="fullscreen-toggle" title="F 全屏" aria-label="切换全屏">⛶</button>
+      </nav>
+    </header>
+    <section class="ui combat-hud" id="combat-hud" hidden aria-label="空战状态">
+      <div class="score"><small>SCORE</small><strong id="score">000000</strong><span id="wave">WAVE 01</span></div>
+      <div class="health"><span>机体完整度 <b id="hp-text">100%</b></span><div class="health-track"><i id="hp-bar"></i></div><small id="enemy-count">4 个目标</small></div>
+      <div class="run-resources">
+        <div class="xp-label"><strong id="level-text">LV 01</strong><span id="xp-text">0 / 25 XP</span></div><div class="resource-track"><i id="xp-bar"></i></div>
+        <div class="resource-line"><span>弹药 <b id="ammo-text">60 / 60</b></span><small id="ammo-regen">+7.0/s</small></div><div class="resource-track ammo"><i id="ammo-bar"></i></div>
+        <div class="resource-line"><span>护盾 <b id="shield-text">未装配</b></span><span id="roll-status">Q 翻滚就绪</span></div>
+        <small id="support-status">击败敌人获得经验 · 升级三选一</small>
+      </div>
+    </section>
+    <details class="ui passive-panel" id="passive-panel" hidden><summary>本局被动 <b id="passive-count">0</b></summary><div id="passive-list">尚未获得被动</div></details>
+    <div id="message" class="ui message" role="status"></div>
+    <div class="ui instruments" id="instruments"><span>ALT <b id="altitude">110</b></span><i></i><span>SPD <b id="speed">092</b></span><i></i><span id="thrust-label">CRUISE</span></div>
+    <div class="ui radar-wrap" id="radar-wrap" hidden><canvas id="radar" width="112" height="112" aria-label="附近敌机雷达"></canvas><span id="radar-label">RADAR / 500 M</span></div>
+    <p id="hint" class="ui hint">移动鼠标转向 · 单击翻滚 · 长按加速 · 空格切换视角</p>
+    <div class="ui touch-controls" id="touch-controls" hidden>
+      <button id="touch-view" aria-label="切换视角">视角</button><button id="touch-roll" aria-label="翻滚闪避">翻滚</button>
+      <div class="touch-right"><button id="touch-fire" hidden aria-label="按住机炮射击">开火</button><button id="touch-boost" aria-label="按住推进器加速">加速</button></div>
+    </div>
+    <div class="ui shortcut-note" id="shortcut-note">H 隐藏界面</div>
+    <div class="ui dialog-shade" id="pause-screen" hidden>
+      <section class="dialog"><small>FLIGHT PAUSED</small><h1>飞行已暂停</h1><p>准备好后，继续飞越群岛。</p><button id="resume" class="accent">继续飞行 <span>P</span></button><button id="pause-settings">飞行设置</button></section>
+    </div>
+    <div class="ui dialog-shade" id="result-screen" hidden>
+      <section class="dialog result"><small>SORTIE COMPLETE</small><h1>本次出击结束</h1><div class="result-score" id="final-score">000000</div><p id="final-detail"></p><button id="restart" class="accent">再次出击 <span>Enter</span></button><button id="free-flight">返回自由飞行</button></section>
+    </div>
+    <div class="ui dialog-shade upgrade-screen" id="upgrade-screen" hidden>
+      <section class="upgrade-dialog" role="dialog" aria-modal="true" aria-labelledby="upgrade-title"><small>LEVEL UP / 三选一</small><h1 id="upgrade-title">升级 · 选择一项被动</h1><p id="upgrade-subtitle">战斗已暂停。相同被动可以再次选择升级。</p><div id="upgrade-choices" class="upgrade-choices"></div><footer>点击卡片或按 1 / 2 / 3 · 死亡后本局重置</footer></section>
+    </div>
+    <aside class="ui settings" id="settings" hidden aria-label="飞行设置">
+      <div class="panel-head"><div><small>FLIGHT CONSOLE</small><h2>飞行设置</h2></div><button id="settings-close" aria-label="关闭设置">×</button></div>
+      <div class="panel-body">
+        <div class="presets"><button data-preset="reference" class="selected">示例原参数</button><button data-preset="sunset">落日巡航</button><button data-preset="night">夜间编队</button></div>
+        <fieldset><legend>镜头与画面</legend>
+          <label>当前视角<select data-param="view"><option value="top">俯视</option><option value="chase">追尾</option><option value="cockpit">驾驶舱</option></select></label>
+          <label>像素大小 <output data-value="pixelSize"></output><input data-param="pixelSize" type="range" min="2" max="6" step="1"></label>
+          <label>镜头过渡 <output data-value="transition"></output><input data-param="transition" type="range" min="0.4" max="4" step="0.1"></label>
+          <label>飞机尺寸 <output data-value="jetScale"></output><input data-param="jetScale" type="range" min="0.6" max="1.6" step="0.05"></label>
+          <label>模型切片间距 <output data-value="spread"></output><input data-param="spread" type="range" min="1" max="7" step="0.1"></label>
+          <label>追尾镜头距离 <output data-value="chaseDistance"></output><input data-param="chaseDistance" type="range" min="1.4" max="6" step="0.1"></label>
+          <label>追尾镜头高度 <output data-value="chaseAngle"></output><input data-param="chaseAngle" type="range" min="4" max="35" step="1"></label>
+          <label>俯视跟随 <output data-value="cameraFollow"></output><input data-param="cameraFollow" type="range" min="0" max="1" step="0.05"></label>
+        </fieldset>
+        <fieldset><legend>飞行</legend>
+          <label>巡航速度 <output data-value="speed"></output><input data-param="speed" type="range" min="20" max="220" step="1"></label>
+          <label>加速倍率 <output data-value="boost"></output><input data-param="boost" type="range" min="1" max="3" step="0.05"></label>
+          <label>转向灵敏度 <output data-value="agility"></output><input data-param="agility" type="range" min="0.3" max="3" step="0.05"></label>
+          <label>最大侧倾 <output data-value="bank"></output><input data-param="bank" type="range" min="0" max="80" step="1"></label>
+          <label>巡航高度 <output data-value="altitude"></output><input data-param="altitude" type="range" min="10" max="300" step="1"></label>
+          <label>最高升限 <output data-value="ceiling"></output><input data-param="ceiling" type="range" min="60" max="600" step="5"></label>
+          <label>最低离地距离 <output data-value="clearance"></output><input data-param="clearance" type="range" min="3" max="40" step="1"></label>
+          <label>僚机数量<select data-param="wingmen"><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label>
+          <label class="check"><input data-param="followPointer" type="checkbox">鼠标/触屏转向</label>
+          <label class="check"><input data-param="invertY" type="checkbox">飞行摇杆反转（下拉爬升）</label>
+          <label class="check"><input data-param="stunts" type="checkbox">无人操作时自动翻滚</label>
+        </fieldset>
+        <fieldset><legend>群岛与天气</legend>
+          <label>时段<select data-param="timeOfDay"><option value="day">晴日</option><option value="sunset">落日</option><option value="night">夜晚</option></select></label>
+          <label>陆地比例 <output data-value="land"></output><input data-param="land" type="range" min="0.05" max="0.75" step="0.01"></label>
+          <label>云量 <output data-value="clouds"></output><input data-param="clouds" type="range" min="0" max="1" step="0.05"></label>
+          <label>世界种子<input data-param="seed" type="number" min="0" max="99999" step="1"></label>
+        </fieldset>
+        <fieldset><legend>涂装与效果</legend>
+          <label>机身<input data-param="bodyColor" type="color"></label><label>点缀<input data-param="accentColor" type="color"></label><label>舱罩<input data-param="canopyColor" type="color"></label>
+          <label>尾焰<select data-param="flameStyle"><option value="realistic">WebGL 流体尾焰</option><option value="pixel">像素尾焰</option></select></label>
+          <label>尾焰强度 <output data-value="afterburner"></output><input data-param="afterburner" type="range" min="0" max="1" step="0.05"></label>
+          <label class="check"><input data-param="trails" type="checkbox">翼尖凝结尾迹</label><label class="check"><input data-param="shadow" type="checkbox">飞机投影</label>
+          <label class="check"><input id="sound" type="checkbox">机炮与爆炸音效</label>
+        </fieldset>
+        <section class="controls-help"><h3>操作手册</h3><p>鼠标移动转向 / WASD 或方向键飞行<br>空战：左键 / Shift 加速　Q 翻滚<br>右键 / J / X 射击　空格切换视角<br>C 切换空战　P 暂停　F 全屏　H 隐藏界面</p><p>触屏：拖动转向，按钮翻滚、加速与射击。手柄：左摇杆飞行，A 翻滚，RT 加速，RB 射击，Y 切换视角。</p><p>空战：60 发弹药，初始每秒自动补充 7 发。Q 翻滚初始无敌 0.45 秒、冷却 2.8 秒。碰撞与敌弹造成伤害；击败敌人获得经验，升级三选一，被动可重复升级。死亡后本局重置。自由飞行保留短按左键翻滚。</p></section>
+        <div class="panel-links"><a href="models.html" target="_blank" rel="noopener">模型与切片素材 ↗</a><a href="肉鸽玩法说明.md" target="_blank" rel="noopener">肉鸽玩法说明 ↗</a><a href="制作说明.md" target="_blank" rel="noopener">源码与制作工具说明 ↗</a></div>
+        <small class="provenance">飞行场景基于 UI8 Forge 公开分享 fighter，保留来源记录。空战与本地界面为本项目扩展。</small>
+      </div>
+      <footer class="panel-footer"><span id="performance">准备飞行</span><button id="reset-settings">恢复示例参数</button></footer>
+    </aside>
+    <div id="boot" role="status"><span class="boot-plane">✦</span><strong>ISLAND ACES</strong><small>正在生成海岛与云层…</small></div>
+  </main>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
