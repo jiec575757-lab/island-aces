@@ -1,15 +1,18 @@
-import { UPGRADES, upgradeById, deriveStats, xpRequired } from './upgrades.js'
+import { UPGRADES, upgradeById, deriveStats, xpRequired } from './upgrades.js?v=1.4.0'
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), angle=a=>a-Math.PI*2*Math.round(a/(Math.PI*2))
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)
 const segment=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy+(p.z-a.z)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);return Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t,p.z-a.z-dz*t)}
 export const ENEMIES={
-  fighter:{name:'巡逻战机',hp:3,speed:68,damage:8,xp:10,scale:1},
-  fast:{name:'疾风精英',hp:5,speed:105,damage:5,xp:22,scale:.82,elite:true},
-  tank:{name:'重甲精英',hp:16,speed:45,damage:11,xp:30,scale:1.18,elite:true},
-  hunter:{name:'猎手精英',hp:9,speed:63,damage:10,xp:30,scale:1,elite:true},
+  fighter:{name:'巡逻战机',hp:3,speed:68,damage:8,xp:10,scale:1,model:'fighter'},
+  fast:{name:'疾风精英',hp:5,speed:105,damage:5,xp:22,scale:.82,elite:true,model:'fast'},
+  tank:{name:'重甲精英',hp:16,speed:45,damage:11,xp:30,scale:1.18,elite:true,model:'tank'},
+  hunter:{name:'猎手精英',hp:9,speed:63,damage:10,xp:30,scale:1,elite:true,model:'hunter'},
   drone:{name:'自爆无人机',hp:2,speed:96,damage:16,xp:16,scale:.7,elite:true,model:'drone'},
   base:{name:'防空基地',hp:30,speed:0,damage:4,xp:45,scale:1,elite:true,model:'base',ground:true},
+  gunboat:{name:'海狼快速炮艇',hp:22,speed:24,damage:4,xp:38,scale:1,elite:true,model:'gunboat',marine:true,hitRadius:25},
+  warship:{name:'苍礁导弹护卫舰',hp:65,speed:13,damage:5,xp:85,scale:1,elite:true,model:'warship',marine:true,hitRadius:42},
 }
+const ELITES=['fast','tank','hunter','drone','base','gunboat','warship']
 export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=true}={}){
   let S={},actors=[],effects=[],ranks={},stats=deriveStats(),timers={},sequence=0,offers=[],pending=0,ally=null,allyRevive=0,nextWave=0,manualFire=false
   let best=0;try{best=Number(localStorage.getItem('island-aces-best')||0)}catch{}
@@ -22,19 +25,34 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
       if((!scene.isLand||scene.isLand(x,y))&&!actors.some(a=>a.ground&&!a.dead&&Math.hypot(a.x-x,a.y-y)<65))return{x,y,z:scene.groundAt(x,y)+2}}
     return null
   }
+  function clearWater(x,y,r=55,yaw=0){
+    if(!scene.isLand)return true
+    const sn=Math.sin(yaw),cs=Math.cos(yaw)
+    for(const ahead of [-r,0,r])for(const side of [-18,0,18])if(scene.isLand(x+sn*ahead+cs*side,y-cs*ahead+sn*side))return false
+    return true
+  }
+  function seaPos(p,min,bearing,r){
+    for(let i=0;i<180;i++){
+      const a=bearing+i*2.399,d=min+(i%12)*35,x=p.x+Math.sin(a)*d,y=p.y-Math.cos(a)*d
+      if(clearWater(x,y,r,a)&&!actors.some(v=>v.marine&&!v.dead&&Math.hypot(v.x-x,v.y-y)<110))return{x,y,z:2}
+    }
+    return null
+  }
   function spawn(type='fighter',bearing,distance=185+(sequence%5)*24){
     const p=scene.telemetry,id=sequence++,def=ENEMIES[type],a=bearing??p.yaw+id*2.399
     let pos={x:p.x+Math.sin(a)*distance,y:p.y-Math.cos(a)*distance,z:p.z+((id%3)-1)*12}
     if(def.ground){pos=landPos(p,Math.max(130,distance),a);if(!pos)return null}
-    if(!def.ground)pos.z=Math.max(scene.groundAt(pos.x,pos.y)+18,pos.z)
+    if(def.marine){pos=seaPos(p,Math.max(210,distance),a,type==='gunboat'?32:55);if(!pos)return null}
+    if(!def.ground&&!def.marine)pos.z=Math.max(scene.groundAt(pos.x,pos.y)+18,pos.z)
     const grade=S.level,hp=def.hp*(1+.18*(grade-1))
     return{...pos,id,type,...def,maxHp:hp,hp,grade,hostile:true,yaw:Math.atan2(p.x-pos.x,-(p.y-pos.y)),roll:0,pitch:0,stunt:-1,stuntDelay:0,shot:2.5+id%3*.6,sam:5+id%2,age:0,collision:0,dead:false}
   }
   function makeWave(){
     const p=scene.telemetry,count=Math.min(18,4+(S.level-1)+(S.wave-1)),offset=S.wave*.31,spread=Math.PI*2/count
-    const elites=['fast','tank','hunter','drone','base']
+    const elites=ELITES
     for(let i=0;i<count;i++){
-      const type=S.level>=2&&(i%3===1||i===count-1)?elites[(S.wave+i+S.level-3)%elites.length]:'fighter'
+      // Guaranteed sea encounters from wave 2; the first wave still surrounds the player with aircraft.
+      const type=S.wave>=2&&i===0?'gunboat':S.level>=3&&i===count-1?'warship':S.level>=2&&(i%3===1||i===count-1)?elites[(S.wave+i+S.level-3)%elites.length]:'fighter'
       const a=spawn(type,p.yaw+offset+i*spread+(i%2?.08:-.08),185+(i*43%4)*27);if(a){a.sector=i;actors.push(a)}
     }
     nextWave=0;emit('wave',{wave:S.wave,level:S.level})
@@ -67,7 +85,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
     for(const a of actors)if(a.hostile&&a.grade<grade){const ratio=a.hp/a.maxHp;a.grade=grade;a.maxHp=ENEMIES[a.type].hp*(1+.18*(grade-1));a.hp=a.maxHp*ratio}
     const desired=Math.min(18,4+(S.level-1)+(S.wave-1)),count=actors.filter(a=>a.hostile&&!a.dead).length
     if(count===0&&!nextWave){nextWave=3;emit('clear',{wave:S.wave})}
-    if(count>0)for(let i=count;i<desired;i++){const types=['fast','tank','hunter','drone','base'];const a=spawn(types[sequence%5]);if(a)actors.push(a)}
+    if(count>0)for(let i=count;i<desired;i++){const a=spawn(ELITES[sequence%ELITES.length]);if(a)actors.push(a)}
     emit('chosen',{id,rank:ranks[id]});offer();sync();return true
   }
   function damage(amount){
@@ -78,7 +96,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
     return true
   }
   function kill(a,credit=true){
-    if(a.dead)return;a.dead=true;blast(a,a.ground?18:12)
+    if(a.dead)return;a.dead=true;blast(a,a.marine?32:a.ground?23:12)
     if(!credit)return
     S.kills++;S.score+=Math.round(a.xp*10*(1+.06*(a.grade-1)));S.hp=Math.min(100,S.hp+stats.killHeal);save()
     const xp=Math.round(a.xp*(1+.12*(a.grade-1)))
@@ -93,15 +111,14 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
   }
   function updateFiring(){
     if(!S.active||S.over||offers.length){S.firing=false;return null}
-    // Keep the cannon's existing range and narrow aim assist; never spend ammo on empty sky.
-    const target=nearest(scene.telemetry,Math.max(450,stats.autoRange),.23)
+    const target=nearest(scene.telemetry,stats.cannonRange,stats.cannonCone)
     S.firing=autoFire?!!target:manualFire
     return target
   }
   function projectile(p,target,{enemy=false,kind='bullet',speed=450,damage=stats.damage,life=2.4}={}){
     let yaw=p.yaw,pitch=p.pitch*.65||0
     if(target){const travel=kind==='bullet'?dist(p,target)/speed*.7:0;const dx=target.x+Math.sin(target.yaw||0)*(target.speed||0)*travel-p.x,dy=target.y-Math.cos(target.yaw||0)*(target.speed||0)*travel-p.y;yaw=Math.atan2(dx,-dy);pitch=Math.atan2(target.z-p.z,Math.hypot(dx,dy))}
-    const cp=Math.cos(pitch),ox=Math.sin(yaw)*cp,oy=-Math.cos(yaw)*cp,oz=Math.sin(pitch),off=p.ground?4:13
+    const cp=Math.cos(pitch),ox=Math.sin(yaw)*cp,oy=-Math.cos(yaw)*cp,oz=Math.sin(pitch),off=p.ground||p.marine?4:13
     effects.push({kind,enemy,damage,target,playerTarget:enemy&&target?.type!=='ally',speed,x:p.x+ox*off,y:p.y+oy*off,z:p.z+oz*off,px:p.x+ox*off,py:p.y+oy*off,pz:p.z+oz*off,vx:ox*speed,vy:oy*speed,vz:oz*speed,life,maxLife:life})
   }
   function requestRoll(){if(!S.active||S.over||offers.length||S.rollCooldown>0||scene.telemetry.rolling)return false;if(scene.roll?.()===false)return false;S.invulnerable=stats.rollDuration;S.rollCooldown=stats.rollCooldown;emit('roll');sync();return true}
@@ -112,7 +129,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
       else{const x=p.x+Math.cos(p.yaw)*28-Math.sin(p.yaw)*18,y=p.y+Math.sin(p.yaw)*28+Math.cos(p.yaw)*18
         ally.x+=(x-ally.x)*Math.min(1,dt*3);ally.y+=(y-ally.y)*Math.min(1,dt*3);ally.z+=(p.z-ally.z)*Math.min(1,dt*2);ally.yaw=p.yaw;ally.roll=p.roll;ally.shot-=dt
         const t=nearest(ally);if(t&&ally.shot<=0){projectile(ally,t,{damage:stats.wingDamage});ally.shot=.42/(1+.1*ranks.wingman)}
-        for(const a of actors)if(a.hostile&&!a.ground&&!a.dead&&dist(a,ally)<13&&(a.collision||0)<=0){allyDamage(18);a.collision=1;hit(a,1.5,false)}
+        for(const a of actors)if(a.hostile&&!a.ground&&!a.marine&&!a.dead&&dist(a,ally)<13&&(a.collision||0)<=0){allyDamage(18);a.collision=1;hit(a,1.5,false)}
       }
     }
     periodic('missile',stats.missileInterval,()=>{const t=nearest(p);if(!t)return false;projectile(p,t,{kind:'missile',speed:190,damage:stats.missileDamage,life:7})})
@@ -140,28 +157,41 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
       }
       a.age+=dt;a.shot-=dt;a.sam-=dt;a.collision=Math.max(0,a.collision-dt)
       const target=S.cloak>0?(ally&&!ally.dead?ally:null):p,dx=p.x-a.x,dy=p.y-a.y,d=Math.hypot(dx,dy)
-      if(d>950){const n=spawn(a.type);if(n)Object.assign(a,n,{hp:a.hp,maxHp:a.maxHp});continue}
+      if(d>(a.marine?1400:950)){const n=spawn(a.type);if(n)Object.assign(a,n,{hp:a.hp,maxHp:a.maxHp});continue}
       let desired=target?Math.atan2(target.x-a.x,-(target.y-a.y)):a.yaw+.35
-      if(target&&!a.ground&&a.type!=='drone'){
+      if(target&&!a.ground&&!a.marine&&a.type!=='drone'){
         // Each fighter has a distinct pass lane. Separation prevents a train of identical pursuers.
         const side=a.id%2?1:-1,lane=24+(a.id%4)*13
         let tx=target.x+Math.cos(target.yaw||0)*side*lane,ty=target.y+Math.sin(target.yaw||0)*side*lane
-        for(const other of actors)if(other!==a&&other.hostile&&!other.ground&&!other.dead){const sx=a.x-other.x,sy=a.y-other.y,dd=Math.hypot(sx,sy);if(dd>0&&dd<58){tx+=sx/dd*(58-dd)*2;ty+=sy/dd*(58-dd)*2}}
+        for(const other of actors)if(other!==a&&other.hostile&&!other.ground&&!other.marine&&!other.dead){const sx=a.x-other.x,sy=a.y-other.y,dd=Math.hypot(sx,sy);if(dd>0&&dd<58){tx+=sx/dd*(58-dd)*2;ty+=sy/dd*(58-dd)*2}}
         desired=Math.atan2(tx-a.x,-(ty-a.y));if(d<58)desired+=side*.9
       }
       const delta=angle(desired-a.yaw),turn=clamp(delta,-(a.type==='drone'?2.1:1),a.type==='drone'?2.1:1)
-      a.yaw+=turn*dt;a.roll+=(turn*.65-a.roll)*Math.min(1,dt*4)
-      if(!a.ground){const speed=a.speed*(1+.02*(a.grade-1));a.x+=Math.sin(a.yaw)*speed*dt;a.y-=Math.cos(a.yaw)*speed*dt;const altitude=Math.max(scene.groundAt(a.x,a.y)+14,(target?.z??p.z)+Math.sin(a.age*.5+a.id)*8);a.pitch=clamp((altitude-a.z)*.012,-.35,.35);a.z+=(altitude-a.z)*Math.min(1,dt*(a.type==='drone'?1.7:.75))}
-      else a.z=scene.groundAt(a.x,a.y)+2
-      if(target&&a.type!=='drone'&&dist(a,target)<(a.ground?600:360)){
-        if(a.shot<=0&&(a.ground||Math.abs(delta)<.34)){projectile({...a,z:a.z+(a.ground?10:0)},target,{enemy:true,speed:a.ground?245:200,damage:a.damage*(1+.06*(a.grade-1)),life:3.6});a.shot=(a.ground?1.15:a.type==='fast'?2.8:2.2)/(1+.05*(a.grade-1))}
-        if((a.type==='hunter'||a.ground)&&a.sam<=0){projectile({...a,z:a.z+(a.ground?12:0)},target,{enemy:true,kind:'missile',speed:a.ground?130:145,damage:a.ground?7:10,life:6});a.sam=a.ground?7:8}
+      if(a.marine){
+        // Ships patrol on water; aim their weapons independently of their course.
+        a.yaw+=Math.sin(a.age*.14+a.id)*dt*.13
+        const speed=a.speed,step=speed*dt,nx=a.x+Math.sin(a.yaw)*step,ny=a.y-Math.cos(a.yaw)*step,r=a.type==='warship'?55:32
+        if(clearWater(nx,ny,r,a.yaw)){a.x=nx;a.y=ny}else a.yaw+=dt*1.1
+        a.z=2+Math.sin(a.age*1.1+a.id)*.3;a.roll=Math.sin(a.age*.7)*.018;a.pitch=Math.sin(a.age*.9)*.012
+      }else{a.yaw+=turn*dt;a.roll+=(turn*.65-a.roll)*Math.min(1,dt*4)}
+      if(!a.ground&&!a.marine){const speed=a.speed*(1+.02*(a.grade-1));a.x+=Math.sin(a.yaw)*speed*dt;a.y-=Math.cos(a.yaw)*speed*dt;const altitude=Math.max(scene.groundAt(a.x,a.y)+14,(target?.z??p.z)+Math.sin(a.age*.5+a.id)*8);a.pitch=clamp((altitude-a.z)*.012,-.35,.35);a.z+=(altitude-a.z)*Math.min(1,dt*(a.type==='drone'?1.7:.75))}
+      else if(a.ground){a.z=scene.groundAt(a.x,a.y)+2;a.roll=0;a.pitch=0}
+      if(target&&a.type!=='drone'&&dist(a,target)<(a.marine?700:a.ground?600:360)){
+        if(a.shot<=0&&(a.ground||a.marine||Math.abs(delta)<.34)){projectile({...a,z:a.z+(a.marine?16:a.ground?18:0)},target,{enemy:true,speed:a.ground||a.marine?220:200,damage:a.damage*(1+.06*(a.grade-1)),life:3.6});a.shot=(a.marine?(a.type==='warship'?1.8:2):a.ground?1.15:a.type==='fast'?2.8:2.2)/(1+.05*(a.grade-1))}
+        if((a.type==='hunter'||a.ground||a.type==='warship')&&a.sam<=0){projectile({...a,z:a.z+(a.marine?20:a.ground?18:0)},target,{enemy:true,kind:'missile',speed:a.ground||a.marine?130:145,damage:a.ground||a.marine?7:10,life:6});a.sam=a.marine?9:a.ground?7:8}
       }
-      if(!a.ground&&dist(a,p)<(a.type==='drone'?13:15)&&a.collision<=0){if(a.type==='drone'){damage(a.damage);kill(a,false)}else{const got=damage(22);a.collision=1;if(got)hit(a,2,false)}}
+      if(!a.ground&&!a.marine&&dist(a,p)<(a.type==='drone'?13:15)&&a.collision<=0){if(a.type==='drone'){damage(a.damage);kill(a,false)}else{const got=damage(22);a.collision=1;if(got)hit(a,2,false)}}
+      if(a.marine&&p.z<a.z+30&&Math.hypot(p.x-a.x,p.y-a.y)<a.hitRadius&&a.collision<=0){damage(22);a.collision=1}
       if(S.over||offers.length)break
     }
     if(!S.over&&!offers.length)for(const e of [...effects]){
-      e.life-=dt;if(e.life<=0||!['bullet','missile','drone'].includes(e.kind))continue
+      if(e.life<=0)continue // A flare removes ordnance without detonating it.
+      e.life-=dt
+      if(e.life<=0){
+        if(e.kind==='missile'||e.kind==='drone'){blast(e,e.kind==='missile'?17:20);emit('detonate',{kind:e.kind,reason:'timeout',x:e.x,y:e.y,z:e.z})}
+        continue
+      }
+      if(!['bullet','missile','drone'].includes(e.kind))continue
       e.px=e.x;e.py=e.y;e.pz=e.z
       if(e.kind!=='bullet'){
         if(e.playerTarget)e.target=S.cloak>0?null:p
@@ -173,7 +203,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
       if(e.z<scene.groundAt(e.x,e.y)){e.life=0;blast(e,4);continue}
       const prev={x:e.px,y:e.py,z:e.pz},r=e.kind==='bullet'?8:11
       if(e.enemy){if(segment(p,prev,e)<r){damage(e.damage);e.life=0;blast(e,3)}else if(ally&&!ally.dead&&segment(ally,prev,e)<10){allyDamage(e.damage);e.life=0;blast(e,3)}}
-      else for(const a of actors)if(a.hostile&&!a.dead&&segment(a,prev,e)<(a.ground?18:r+2)){hit(a,e.damage);e.life=0;break}
+      else for(const a of actors)if(a.hostile&&!a.dead&&segment({...a,z:a.z+(a.marine?10:a.ground?12:0)},prev,e)<(a.hitRadius||(a.ground?22:r+2))){hit(a,e.damage);e.life=0;if(e.kind!=='bullet')blast(e,16);break}
       if(S.over||offers.length)break
     }
     actors=actors.filter(a=>!a.dead);effects=effects.filter(e=>e.life>0)

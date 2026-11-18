@@ -40,12 +40,12 @@ let browser;
    step(15);const idle={ammo:c.state.ammo,firing:c.state.firing};
    Object.assign(t,{x:p.x+sn*200,y:p.y-cs*200});step(20);const aimed={ammo:c.state.ammo,firing:c.state.firing};
    Object.assign(t,{x:p.x-sn*180,y:p.y+cs*180});step(15);const behind={ammo:c.state.ammo,firing:c.state.firing};
-   Object.assign(t,{x:p.x+sn*600,y:p.y-cs*600});step(5);const far={ammo:c.state.ammo,firing:c.state.firing};
+   Object.assign(t,{x:p.x+sn*800,y:p.y-cs*800});step(5);const far={ammo:c.state.ammo,firing:c.state.firing};
    Object.assign(t,{x:p.x+sn*200,y:p.y-cs*200,dead:true});step(5);const dead={ammo:c.state.ammo,firing:c.state.firing};
    c.start();return{idle,aimed,behind,far,dead}
  });assert.deepEqual(targetFire.idle,{ammo:60,firing:false});assert.ok(targetFire.aimed.firing&&targetFire.aimed.ammo<60,JSON.stringify(targetFire));assert.ok(!targetFire.behind.firing&&targetFire.behind.ammo>targetFire.aimed.ammo);assert.equal(targetFire.far.firing,false);assert.equal(targetFire.dead.firing,false);
  checks.push('Live cannon fires only at a frontal target within range; empty sky, rear, distant and dead targets preserve ammo');
- await page.evaluate(()=>{const p=flightLab.scene.telemetry,s=Math.sin(p.yaw),c=Math.cos(p.yaw);flightLab.combat.targets.forEach((a,i)=>Object.assign(a,{x:p.x+s*(i?650:115)+c*(i?i*15:0),y:p.y-c*(i?650:115)+s*(i?i*15:0),z:p.z,yaw:p.yaw,speed:0,hp:i?100:1,shot:999,sam:999}))});
+ await page.evaluate(()=>{const p=flightLab.scene.telemetry,s=Math.sin(p.yaw),c=Math.cos(p.yaw);flightLab.combat.targets.forEach((a,i)=>Object.assign(a,{x:p.x+s*(i?850:115)+c*(i?i*15:0),y:p.y-c*(i?850:115)+s*(i?i*15:0),z:p.z,yaw:p.yaw,speed:0,hp:i?100:1,shot:999,sam:999}))});
  await page.clock.runFor(450);assert.ok(await page.evaluate(()=>flightLab.combat.state.kills>=1));assert.ok(await page.evaluate(()=>flightLab.combat.state.score>=100));assert.equal(await page.evaluate(()=>flightLab.combat.state.firing),false);
  const hud=await page.evaluate(()=>{const h=document.querySelector('#combat-hud'),c=document.querySelector('#pixel-hud'),style=getComputedStyle(h),ctx=c.getContext('2d'),bytes=ctx.getImageData(0,0,c.width,c.height).data;return {children:h.children.length,border:style.borderTopWidth,background:style.backgroundColor,height:h.getBoundingClientRect().height,alpha:[...new Set(Array.from(bytes).filter((_,i)=>i%4===3))],label:c.getAttribute('aria-label'),ammo:Number(c.dataset.ammo)}});assert.equal(hud.children,1);assert.equal(hud.border,'0px');assert.equal(hud.background,'rgba(0, 0, 0, 0)');assert.ok(hud.height<=50);assert.deepEqual(hud.alpha.sort((a,b)=>a-b),[0,255]);assert.match(hud.label,/血量.*弹药.*等级.*经验/);assert.equal(hud.ammo,await page.evaluate(()=>Math.floor(flightLab.combat.state.ammo)));assert.ok(hud.ammo<=60);
  await page.screenshot({path:out+'/desktop-combat.png'});
@@ -70,6 +70,8 @@ let browser;
  await page.clock.runFor(4000);await page.evaluate(()=>flightLab.combat.damage(9999));await page.clock.runFor(500);assert.ok(await page.locator('#result-screen').isVisible());assert.match(await page.locator('#final-score').textContent(),/^\d{6}$/);
  await page.locator('#restart').click();await page.clock.runFor(50);assert.equal(await page.evaluate(()=>flightLab.combat.state.score),0);assert.equal(await page.evaluate(()=>flightLab.combat.state.hp),100);assert.equal(await page.evaluate(()=>flightLab.combat.state.level),1);assert.equal(await page.locator('#pixel-hud').getAttribute('data-hp'),'100');
  checks.push('Automatic cannon kills without input, four-field borderless bitmap HUD, death and restart');
+ // Freeze RAF while capturing art; incomplete display-only actors must not enter simulation.
+ await page.clock.pauseAt(new Date(await page.evaluate(()=>Date.now())+100));
  // Arrange a still-life from the live unit definitions to inspect new art in the actual renderer.
  for(const view of ['top','chase','cockpit']){
    await page.evaluate(async view=>{
@@ -117,10 +119,10 @@ let browser;
  await page.locator('[data-view=top]').click();await page.locator('#layer').fill('4');assert.match(await page.locator('#layer-out').textContent(),/第 5 层/);
  const vox=await page.request.get(base+'models/fighterjet.vox');assert.equal(vox.status(),200);assert.equal((await vox.body()).subarray(0,4).toString(),'VOX ');
  for(const file of ['assets/fighter-slices.png','assets/fighter-reconstructed-four-views.png','models/fighter-slices.json'])assert.equal((await page.request.get(base+file)).status(),200);
- assert.equal(await page.locator('[data-unit]').count(),4);await page.locator('#unit-gallery').screenshot({path:out+'/unit-models.png'});await page.locator('[data-unit-view=top]').click();await page.locator('#unit-gallery').screenshot({path:out+'/unit-models-top.png'});await page.locator('[data-unit-view=side]').click();await page.locator('#unit-gallery').screenshot({path:out+'/unit-models-side.png'});
- for(const id of ['missile','drone','base','support']){const vox=await page.request.get(base+`models/${id}.vox`);assert.equal(vox.status(),200);assert.equal((await vox.body()).subarray(0,4).toString(),'VOX ');const data=await (await page.request.get(base+`models/${id}.json`)).json();assert.ok(data.voxels.length>100)}
+ assert.equal(await page.locator('[data-unit]').count(),11);await page.locator('#unit-gallery').screenshot({path:out+'/unit-models.png'});await page.locator('[data-unit-view=top]').click();await page.locator('#unit-gallery').screenshot({path:out+'/unit-models-top.png'});await page.locator('[data-unit-view=side]').click();await page.locator('#unit-gallery').screenshot({path:out+'/unit-models-side.png'});
+ for(const id of ['fighter','fast','tank','hunter','ally','missile','drone','base','support','warship','gunboat']){const vox=await page.request.get(base+`models/${id}.vox`);assert.equal(vox.status(),200);assert.equal((await vox.body()).subarray(0,4).toString(),'VOX ');const data=await (await page.request.get(base+`models/${id}.json`)).json();assert.ok(data.voxels.length>100)}
  for(const file of ['README.md','制作说明.md','肉鸽玩法说明.md'])assert.equal((await page.request.get(base+encodeURI(file))).status(),200);
  checks.push('Interactive model inspector, MagicaVoxel and PNG/JSON assets');
  assert.deepEqual(errors,[]);assert.deepEqual(bad,[]);assert.deepEqual(external,[]);
- const result={date:new Date().toISOString(),version:'1.3.1',base:'1.0.0',checks,errors,bad,external,passed:true};fs.writeFileSync(out+'/validation.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));await browser.close();
+ const result={date:new Date().toISOString(),version:'1.4.0',base:'1.0.0',checks,errors,bad,external,passed:true};fs.writeFileSync(out+'/validation.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));await browser.close();
 })().catch(async e=>{console.error(e);await browser?.close();process.exitCode=1});

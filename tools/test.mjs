@@ -10,7 +10,7 @@ await mkdir(new URL('../artifacts/',import.meta.url),{recursive:true})
 const checks=[]
 assert.equal(decodeJet().reduce((n,s)=>n+s.filter(Boolean).length,0),2564)
 for(const mesh of Object.values(UNIT_MODELS))assert.ok(mesh.length>50)
-checks.push('Original v1.0 fighter preserved, four original replacement voxel props')
+checks.push('Original v1.0 fighter preserved; solid enemy airframes, weapons, bases and two naval models')
 {
  const s=createScene({...DEFAULT_PARAMS,intro:false,stunts:false});s.resize(427,267);s.setCombatFlight({speed:1,agility:1.65});s.setKeys(1,0,false,0)
  for(let i=0;i<15;i++)s.step(.02);assert.ok(s.telemetry.turn>1.2)
@@ -19,7 +19,7 @@ checks.push('Original v1.0 fighter preserved, four original replacement voxel pr
 }
 function fixture(){
  const p={x:0,y:0,z:110,yaw:0,pitch:0,roll:0,speed:0,rolling:false},events=[];let wanted='rapid',flight
- const scene={get telemetry(){return {...p}},groundAt(){return 0},isLand(){return true},roll(){if(p.rolling)return false;p.rolling=true;return true},restart(){p.rolling=false},setCombat(){},setCombatFlight(f){flight=f}}
+ const scene={get telemetry(){return {...p}},groundAt(){return 0},isLand(x){return x<100},roll(){if(p.rolling)return false;p.rolling=true;return true},restart(){p.rolling=false},setCombat(){},setCombatFlight(f){flight=f}}
  const c=createCombat(scene,(type,data)=>events.push({type,...data}),()=> (UPGRADES.findIndex(u=>u.id===wanted)+.1)/UPGRADES.length,{autoFire:false})
  const tick=s=>{for(let i=0;i<Math.round(s/.02);i++)c.step(.02)}
  const park=()=>c.targets.forEach((a,i)=>{if(a.hostile)Object.assign(a,{x:650+i*3,y:0,z:110,speed:0,shot:999,sam:999})})
@@ -42,12 +42,12 @@ function fixture(){
  tick(20);assert.equal(c.state.firing,false);assert.equal(c.state.ammo,60);assert.equal(shots(),0)
  c.setFiring(true);tick(5);assert.equal(shots(),0,'Mouse state cannot force automatic fire into empty sky')
  const t=c.targets[0],place=(bearing,d,z=110)=>Object.assign(t,{x:Math.sin(bearing)*d,y:-Math.cos(bearing)*d,z,hp:10000,maxHp:10000,hostile:true,dead:false})
- for(const [bearing,d,z]of [[0,461,110],[Math.PI/2,100,110],[Math.PI,100,110],[.24,200,110],[-.24,200,110],[0,450,300]]){place(bearing,d,z);tick(6);assert.equal(c.state.firing,false);assert.equal(shots(),0,'Outside distance/front cone must not fire')}
- place(0,459);tick(1);assert.equal(c.state.firing,true);assert.equal(shots(),1);assert.ok(c.state.ammo<60)
+ for(const [bearing,d,z]of [[0,701,110],[Math.PI/2,100,110],[Math.PI,100,110],[.54,200,110],[-.54,200,110],[0,690,300]]){place(bearing,d,z);tick(6);assert.equal(c.state.firing,false);assert.equal(shots(),0,'Outside distance/front cone must not fire')}
+ place(0,699);tick(1);assert.equal(c.state.firing,true);assert.equal(shots(),1);assert.ok(c.state.ammo<60)
  c.setFiring(false);assert.equal(c.state.firing,true,'Releasing controls preserves target-triggered fire')
  place(0,200);tick(30);assert.ok(t.hp<10000,'In-range frontal cannon actually hits')
  const ammo=c.state.ammo,shotCount=shots();place(Math.PI,100);tick(15);assert.equal(c.state.firing,false);assert.equal(shots(),shotCount);assert.ok(c.state.ammo>ammo,'Losing target stops fire and restores ammunition')
- for(const bearing of [.22,-.22]){place(bearing,200);const before=shots();tick(6);assert.ok(shots()>before,'Both front-cone edges fire')}
+ for(const bearing of [.51,-.51]){place(bearing,200);const before=shots();tick(6);assert.ok(shots()>before,'Both expanded 30-degree front-cone edges fire')}
  place(0,200);t.hostile=false;const before=shots();tick(6);assert.equal(shots(),before);t.hostile=true;t.dead=true;tick(1);assert.equal(shots(),before)
  // A closer side target must not hide the farther target in front; yaw wraps at ±π.
  const live=c.targets.find(a=>a.hostile&&!a.dead),side=c.targets.find(a=>a!==live);Object.assign(side,{x:60,y:0,z:110});Object.assign(live,{x:0,y:-300,z:110,hp:10000,maxHp:10000});tick(6);assert.ok(shots()>before)
@@ -114,7 +114,7 @@ for(const [id,kind]of [['missile','missile'],['drone','drone'],['secondary','bul
  checks.push('Reduced allied ground support deploys, hits and expires')
 }
 {
- const f=fixture();f.park();for(let i=0;i<6;i++)f.grant('shield');const types=new Set(f.c.targets.filter(a=>a.hostile).map(a=>a.type));for(const type of Object.keys(ENEMIES))assert.ok(types.has(type),type)
+ const f=fixture();f.park();for(let i=0;i<8;i++)f.grant('shield');const types=new Set(f.c.targets.filter(a=>a.hostile).map(a=>a.type));for(const type of Object.keys(ENEMIES))assert.ok(types.has(type),type)
  const base=f.c.targets.find(a=>a.type==='base');Object.assign(base,{x:0,y:-230,z:2,shot:0,sam:0});f.tick(.02)
  const bullets=f.c.effects.filter(e=>e.enemy),cannon=bullets.find(e=>e.kind==='bullet'),sam=bullets.find(e=>e.kind==='missile')
  assert.ok(cannon&&sam);assert.ok(cannon.damage<6);assert.equal(sam.damage,7);assert.ok(base.shot>.8&&base.sam>=6.9)

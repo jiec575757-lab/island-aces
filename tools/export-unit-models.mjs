@@ -9,6 +9,6 @@ for(const [id,voxels] of Object.entries(UNIT_MODELS)){
   const entries=voxels.map(([x,y,z,c])=>Buffer.from([x-min[0],y-min[1],z-min[2],colors.indexOf(c.join(','))+1]))
   const children=Buffer.concat([chunk('SIZE',Buffer.concat(size.map(int))),chunk('XYZI',Buffer.concat([int(entries.length),...entries])),chunk('RGBA',rgba)])
   await writeFile(new URL(`../models/${id}.vox`,import.meta.url),Buffer.concat([Buffer.from('VOX '),int(150),chunk('MAIN',Buffer.alloc(0),children)]))
-  await writeFile(new URL(`../models/${id}.json`,import.meta.url),JSON.stringify({name:id,source:'Original v1.2 voxel prop; matches the fighter palette',size,origin:min,voxels}))
-  console.log(`${id}: ${entries.length} surface voxels, ${size.join('×')}`)
+  await writeFile(new URL(`../models/${id}.json`,import.meta.url),JSON.stringify({name:id,source:'v1.4 solid voxel volume; fighter variants derived from the original airframe',size,origin:min,voxels}))
+  console.log(`${id}: ${entries.length} solid voxels, ${size.join('×')}`)
 }

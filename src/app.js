@@ -1,9 +1,9 @@
-import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.3.1'
+import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.4.0'
 import { createFlameLayer } from './flame-layer.js'
-import { createCombat } from './combat.js?v=1.3.1'
-import { upgradeById } from './upgrades.js'
-import { createPixelHud } from './pixel-hud.js?v=1.3.1'
-import { createMobileControls } from './mobile-controls.js?v=1.3.1'
+import { createCombat } from './combat.js?v=1.4.0'
+import { upgradeById } from './upgrades.js?v=1.4.0'
+import { createPixelHud } from './pixel-hud.js?v=1.4.0'
+import { createMobileControls } from './mobile-controls.js?v=1.4.0'
 
 const $ = id => document.getElementById(id)
 const root = $('flight'), world = $('world'), flame = $('flame'), ctx = world.getContext('2d', { alpha: false })

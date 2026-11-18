@@ -8,7 +8,10 @@
 // Two views share one camera: the overhead sprite-stack view, and a chase view from behind
 // the jet. The camera slides between them, so the switch is a single continuous move.
 
-import { UNIT_MODELS } from './unit-models.js'
+import { UNIT_MODELS, UNIT_STYLES } from './unit-models.js?v=1.4.0'
+import { buildVoxelMesh } from './voxel-mesh.js'
+import { drawVoxelMesh } from './voxel-renderer.js'
+const combatMeshes=Object.fromEntries(Object.entries(UNIT_MODELS).map(([id,voxels])=>[id,buildVoxelMesh(voxels)]))
 import {
   JET_W, JET_L, JET_H, JET_PALETTE, decodeJet,
   JET_PIVOT_K, JET_PIVOT_Y, JET_ENGINE_A, JET_ENGINE_Y, JET_ENGINE_R, JET_NOZZLE_K,
@@ -2050,19 +2053,36 @@ export function createScene(initial) {
     })
   }
 
+  let combatFaces=0
+  function drawUnitGrounding(j){
+    if(j.dead)return
+    if(j.marine){
+      const sn=Math.sin(j.yaw),cs=Math.cos(j.yaw),length=j.type==='warship'?43:25
+      for(let i=0;i<16;i++)for(const side of [-1,1]){
+        const along=length+i*2.6,across=side*(4+i*.55),x=j.x-sn*along+cs*across,y=j.y+cs*along+sn*across
+        if(!project(x,y,.4))continue
+        const px=Math.round(prX),py=Math.round(prY)
+        if(px<0||py<0||px>=W||py>=H)continue
+        const at=py*W+px;if(zbuf[at]<prV-2)continue
+        fb[at]=i%3===0?pack(176,210,209):pack(111,175,190)
+      }
+    }else if(j.ground){
+      if(!project(j.x+6,j.y+7,groundAt(j.x,j.y)+.2))return
+      const x=prX,y=prY,d=prV,rx=Math.min(32,23*prM),ry=rx*.48
+      for(let yy=Math.max(0,Math.floor(y-ry));yy<=Math.min(H-1,Math.ceil(y+ry));yy++)for(let xx=Math.max(0,Math.floor(x-rx));xx<=Math.min(W-1,Math.ceil(x+rx));xx++){
+        if(((xx-x)/rx)**2+((yy-y)/ry)**2>1)continue
+        const at=yy*W+xx;if(zbuf[at]<d-3)continue
+        const col=fb[at];fb[at]=pack((col&255)*.66,((col>>>8)&255)*.66,((col>>>16)&255)*.7)
+      }
+    }
+  }
   function drawUnitProp(j) {
-      const mesh = UNIT_MODELS[j.model || j.kind]
-      if (!mesh || !project(j.x,j.y,j.z)) return
-      const sn=Math.sin(j.yaw||0),cs=Math.cos(j.yaw||0),cp=Math.cos(j.pitch||0),sp=Math.sin(j.pitch||0),sc=j.ground?1.55:j.kind==='missile'?.55:.72,points=[]
-      for(const [a,b,k,col] of mesh){
-        const along=b*cp+k*sp,height=-b*sp+k*cp
-        if(!project(j.x+(a*cs-along*sn)*sc,j.y+(a*sn+along*cs)*sc,j.z+height*sc))continue
-        points.push({x:prX,y:prY,depth:prV,m:prM,k,a,col})
-      }
-      points.sort((a,b)=>a.k-b.k||b.depth-a.depth)
-      for(const v of points){const r=Math.max(.7,Math.min(j.ground?5:3.5,v.m*sc*.8)),shade=.8+(v.k%3)*.07+(v.a<0?.08:0),c=pack(v.col[0]*shade,v.col[1]*shade,v.col[2]*shade)
-        for(let y=Math.floor(v.y-r);y<=Math.ceil(v.y+r);y++)for(let x=Math.floor(v.x-r);x<=Math.ceil(v.x+r);x++){if(x<0||y<0||x>=W||y>=H)continue;if(zbuf[y*W+x]>=v.depth-.5)fb[y*W+x]=c}
-      }
+    const id=j.model||j.kind,mesh=combatMeshes[id],style=UNIT_STYLES[id]
+    if(!mesh||j.dead)return
+    const ax=axes({...j,yaw:j.yaw||0,pitch:j.pitch||0,roll:j.roll||0,stunt:-1})
+    const basis=[[ax.rx,ax.ry,ax.rz],[-ax.fx,-ax.fy,-ax.fz],[ax.ux,ax.uy,ax.uz]]
+    const size=style.airframe?jetSize()*(j.scale||1):style.scale
+    combatFaces+=drawVoxelMesh(mesh,j,basis,size,{x:cam.x,y:cam.y,z:cam.alt,cos:vCos,sin:vSin,q:vQ,scale:vS,tan:vTan,cx:vCx,cy:vCy},fb,zbuf,W,H,[-sunX,-sunY,1.1],p.timeOfDay==='night')
   }
 
   function drawCombatEffects() {
@@ -2082,10 +2102,14 @@ export function createScene(initial) {
       if (x < -60 || y < -60 || x > W + 60 || y > H + 60) continue
       if (e.kind === 'bullet' || e.kind === 'missile' || e.kind === 'drone') {
         const color = e.enemy ? pack(255, 107, 62) : pack(255, 244, 173)
+        // Enemy rounds have a dark rim, large orange body, bright core and a visible tail.
+        // The damage radius is unchanged: larger art makes the existing hitbox legible.
+        const hostileRound=e.enemy&&e.kind==='bullet',roundSize=hostileRound?Math.max(2,Math.min(4,Math.round(2+scale*1.1))):0
         if (project(e.px, e.py, e.pz)) {
-          const steps = Math.min(36, Math.max(1, Math.ceil(Math.hypot(x - prX, y - prY))))
-          for (let i = 0; i <= steps; i++) dot(x + (prX - x) * i / steps, y + (prY - y) * i / steps, d, color)
+          const tx=prX,ty=prY,steps = Math.min(36, Math.max(1, Math.ceil(Math.hypot(x - tx, y - ty))))
+          for (let i = steps; i >=0; i--) dot(x + (tx - x) * i / steps, y + (ty - y) * i / steps, d, color,hostileRound?Math.max(1,roundSize-1):0)
         } else dot(x, y, d, color)
+        if(hostileRound){dot(x,y,d,pack(73,30,29),roundSize+1);dot(x,y,d-.1,color,roundSize);dot(x-1,y-1,d-.2,pack(255,240,163),Math.max(1,roundSize-1))}
         if(e.kind !== 'bullet') {
           if(e.kind==='missile'){
             const v=Math.hypot(e.vx,e.vy,e.vz)||1
@@ -2215,10 +2239,12 @@ export function createScene(initial) {
     drawTrails()
     drawSmoke()
     // far jets first
+    combatFaces=0
+    for(const j of combatActors)drawUnitGrounding(j)
     const visibleJets = combatActors.length ? jets.concat(combatActors) : jets
     const order = visibleJets.map((j, i) => ({ i, d: (j.x - cam.x) * vSin + (j.y - cam.y) * vCos }))
     order.sort((a, b) => a.d - b.d)
-    for (const e of order) {const j=visibleJets[e.i];if(j.model)drawUnitProp(j);else drawJet(j,e.i)}
+    for (const e of order) {const j=visibleJets[e.i];if(j.model||UNIT_MODELS[j.type])drawUnitProp(j.model?j:{...j,model:j.type});else drawJet(j,e.i)}
     drawCombatEffects()
     if (rolled) {
       W = w0
@@ -2255,6 +2281,7 @@ export function createScene(initial) {
     setCombatFlight(value) { combatFlight = value },
     setViewportScale(value) { viewportScale = clamp(value,.5,1) },
     get combatIndicators() { return combatMarkers },
+    get combatGeometry() { return {faces:combatFaces} },
     get telemetry() {
       const j = jets[0]
       return { x: j.x, y: j.y, z: j.z, yaw: j.yaw, pitch: j.pitch, roll: j.roll,

@@ -35,6 +35,7 @@ export function deriveStats(r={}){
     regen:.5*n('regen'), rollDuration:Math.min(1.5,.45+.15*n('roll')), rollCooldown:Math.max(2.2,2.8-.08*n('roll')),
     killHeal:1.5*n('vampire'), cloakInterval:timer(22,'cloak',2,10), cloakDuration:Math.min(6,2+n('cloak')),
     secondaryInterval:Math.max(.32,1.1-.08*n('secondary')), secondaryDamage:.3*(1+.05*Math.max(0,n('secondary')-1)),
-    radarRange:500+150*n('radar'), autoRange:460+50*n('radar')
+    radarRange:700+150*n('radar'), autoRange:460+50*n('radar'),
+    cannonRange:700+50*n('radar'), cannonCone:Math.PI/6
   }
 }
