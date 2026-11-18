@@ -4,6 +4,7 @@ import { UPGRADES, deriveStats } from '../src/upgrades.js'
 import { UNIT_MODELS } from '../src/unit-models.js'
 import { decodeJet } from '../src/jet-model.js'
 import { createScene, DEFAULT_PARAMS } from '../src/scene.js'
+import { flightCoordinates, tiltAxis } from '../src/mobile-controls.js'
 import { writeFile, mkdir } from 'node:fs/promises'
 await mkdir(new URL('../artifacts/',import.meta.url),{recursive:true})
 const checks=[]
@@ -19,12 +20,29 @@ checks.push('Original v1.0 fighter preserved, four original replacement voxel pr
 function fixture(){
  const p={x:0,y:0,z:110,yaw:0,pitch:0,roll:0,speed:0,rolling:false},events=[];let wanted='rapid',flight
  const scene={get telemetry(){return {...p}},groundAt(){return 0},isLand(){return true},roll(){if(p.rolling)return false;p.rolling=true;return true},restart(){p.rolling=false},setCombat(){},setCombatFlight(f){flight=f}}
- const c=createCombat(scene,(type,data)=>events.push({type,...data}),()=> (UPGRADES.findIndex(u=>u.id===wanted)+.1)/UPGRADES.length)
+ const c=createCombat(scene,(type,data)=>events.push({type,...data}),()=> (UPGRADES.findIndex(u=>u.id===wanted)+.1)/UPGRADES.length,{autoFire:false})
  const tick=s=>{for(let i=0;i<Math.round(s/.02);i++)c.step(.02)}
  const park=()=>c.targets.forEach((a,i)=>{if(a.hostile)Object.assign(a,{x:650+i*3,y:0,z:110,speed:0,shot:999,sam:999})})
  const grant=id=>{wanted=id;c.awardXP(c.state.xpNext-c.state.xp);assert.ok(c.state.choices.some(u=>u.id===id));assert.equal(c.chooseUpgrade(id),true);park()}
  c.start()
  return{c,p,events,tick,park,grant,get flight(){return flight}}
+}
+{
+ const rect={left:0,top:0,right:390,bottom:844}
+ assert.deepEqual(flightCoordinates(340,170,rect,true),{x:170,y:50})
+ assert.deepEqual(flightCoordinates(170,50,rect,false),{x:170,y:50})
+ assert.ok(tiltAxis(20,0,90)>19.9&&tiltAxis(-20,0,90)<-19.9)
+ assert.ok(tiltAxis(20,0,270)<-19.9);assert.equal(tiltAxis(0,15,0),15)
+ checks.push('Rotated phone pointer transform and tilt axes work in both landscape orientations')
+}
+{
+ const p={x:0,y:0,z:110,yaw:0,pitch:0,speed:0},scene={get telemetry(){return p},groundAt(){return 0},setCombat(){},setCombatFlight(){}}
+ const c=createCombat(scene);c.start();c.targets.forEach(a=>Object.assign(a,{x:600,y:-600,speed:0,shot:999,sam:999}));c.step(.02)
+ assert.equal(c.state.firing,true);assert.ok(c.state.ammo<60&&c.effects.some(e=>e.kind==='bullet'&&!e.enemy))
+ c.setFiring(false);assert.equal(c.state.firing,true)
+ c.awardXP(25);assert.equal(c.state.firing,false);const time=c.state.elapsed;c.step(.05);assert.equal(c.state.elapsed,time)
+ c.chooseUpgrade(c.state.choices[0].id);assert.equal(c.state.firing,true)
+ checks.push('Automatic cannon needs no input, survives release, freezes for upgrade and resumes after choice')
 }
 {
  const f=fixture(),angles=f.c.targets.map(a=>(Math.atan2(a.x,-a.y)+Math.PI*2)%(Math.PI*2)).sort((a,b)=>a-b)

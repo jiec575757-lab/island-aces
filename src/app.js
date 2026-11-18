@@ -1,7 +1,9 @@
-import { createScene, DEFAULT_PARAMS } from './scene.js'
+import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.3'
 import { createFlameLayer } from './flame-layer.js'
-import { createCombat } from './combat.js'
+import { createCombat } from './combat.js?v=1.3'
 import { upgradeById } from './upgrades.js'
+import { createPixelHud } from './pixel-hud.js?v=1.3'
+import { createMobileControls } from './mobile-controls.js?v=1.3'
 
 const $ = id => document.getElementById(id)
 const root = $('flight'), world = $('world'), flame = $('flame'), ctx = world.getContext('2d', { alpha: false })
@@ -10,9 +12,12 @@ let image = null, scale = 4, hiddenUi = false, paused = false, last = performanc
 let flameGpu = null, flameFailed = false, audio = null, audioEnabled = false
 try { audioEnabled = localStorage.getItem('island-aces-sound') === 'on' } catch {}
 const scene = createScene(params), hint = $('hint'), settings = $('settings'), combatHud = $('combat-hud')
-const keys = new Set(), controls = { turn: 0, climb: 0, boost: false, thrust: 0, roll: false, view: false, fire: false }
+const drawPixelHud=createPixelHud($('pixel-hud'))
+const keys = new Set(), controls = { turn: 0, climb: 0, boost: false, thrust: 0, touchLeft:false, touchRight:false, tiltTurn:0 }
 const touchScreen = matchMedia('(pointer: coarse)').matches
 if (touchScreen) { root.classList.add('touch'); $('touch-controls').hidden = false; }
+scene.setViewportScale(touchScreen ? .62 : 1)
+let mobile
 if (audioEnabled) $('sound').checked = true
 
 function beep(kind = 'shot') {
@@ -38,11 +43,11 @@ let combat
 combat = createCombat(scene, (event, data) => {
   if (event === 'shot') { beep('shot'); return }
   if (event === 'hit') { beep('hit'); $('damage-flash').classList.add('active'); setTimeout(() => $('damage-flash').classList.remove('active'), 90); return }
-  if (event === 'kill') { $('score').textContent = String(data.score).padStart(6, '0'); showMessage(`${data.name} 击破 / +${data.xp} XP`, 800); beep('kill'); return }
+  if (event === 'kill') { showMessage(`${data.name} 击破 / +${data.xp} XP`, 800); beep('kill'); return }
   if (event === 'upgrade') { clearInputs(); renderUpgrade(); return }
   if (event === 'chosen') { showMessage(`${upgradeById[data.id].name} · Lv.${data.rank}`, 1400); return }
   if (event === 'ability' || event === 'support') { showMessage(data.text, 1500); return }
-  if (event === 'wave') { $('wave').textContent = `WAVE ${String(data.wave).padStart(2, '0')}`; showMessage(data.wave === 1 ? '敌机接近 / 开火迎击' : `第 ${data.wave} 波敌机接近`, 1800); return }
+  if (event === 'wave') { showMessage(data.wave === 1 ? '敌机接近 / 自动开火' : `第 ${data.wave} 波敌机接近`, 1800); return }
   if (event === 'clear') { showMessage('空域清空 / 下一波即将抵达', 2100); return }
   if (event === 'over') {
     $('final-score').textContent = String(data.score).padStart(6, '0')
@@ -51,7 +56,7 @@ combat = createCombat(scene, (event, data) => {
   }
 })
 
-function clearInputs(){keys.clear();for(const k of ['fire','pointerFire','padFire','boost','pointerBoost','pointerDown'])controls[k]=false;controls.turn=controls.climb=controls.thrust=0;combat?.setFiring(false);scene.setKeys(0,0,false,0);scene.pointerLeave()}
+function clearInputs(){keys.clear();for(const k of ['boost','pointerBoost','pointerDown','touchLeft','touchRight'])controls[k]=false;controls.turn=controls.climb=controls.thrust=controls.tiltTurn=0;controls.touchId=undefined;combat?.setFiring(false);scene.setKeys(0,0,false,0);scene.pointerLeave();root.dispatchEvent(new Event('flight-input-reset'));document.querySelectorAll('.pressed').forEach(el=>el.classList.remove('pressed'))}
 function roll(){if(paused)return;if(combat.state.active)combat.requestRoll();else scene.roll()}
 function renderUpgrade(){
   const s=combat.state;$('upgrade-screen').hidden=!s.selecting;if(!s.selecting)return
@@ -65,14 +70,8 @@ function renderUpgrade(){
 function selectUpgrade(id){if(combat.chooseUpgrade(id)){clearInputs();renderUpgrade();updateCombatHud();last=performance.now();if(!combat.state.selecting)root.focus({preventScroll:true})}}
 function updateCombatHud(){
   const s=combat.state;if(!s.active)return
-  $('hp-text').textContent=`${Math.ceil(s.hp)}%`;$('hp-bar').style.width=`${s.hp}%`;$('hp-bar').style.background=s.hp>55?'#a8e8c4':s.hp>25?'#f0c373':'#ff755d'
-  const elite=combat.targets.filter(a=>a.hostile&&a.elite&&!a.dead).length
-  $('enemy-count').textContent=`${s.enemies} 个目标${elite?` / ${elite} 精英`:''}`
-  $('level-text').textContent=`LV ${String(s.level).padStart(2,'0')}`;$('xp-text').textContent=`${Math.floor(s.xp)} / ${s.xpNext} XP`;$('xp-bar').style.width=`${s.xp/s.xpNext*100}%`
-  $('ammo-text').textContent=`${Math.floor(s.ammo)} / ${s.stats.ammoMax}`;$('ammo-bar').style.width=`${s.ammo/s.stats.ammoMax*100}%`;$('ammo-regen').textContent=`+${s.stats.ammoRegen.toFixed(1)}/s`
-  $('shield-text').textContent=s.stats.shieldMax?`${Math.ceil(s.shield)} / ${s.stats.shieldMax}`:'未装配'
-  $('roll-status').textContent=s.invulnerable>0?`无敌 ${s.invulnerable.toFixed(1)}s`:s.rollCooldown>0?`Q 冷却 ${s.rollCooldown.toFixed(1)}s`:'Q 翻滚就绪'
-  $('support-status').textContent=s.cloak>0?`隐形中 ${s.cloak.toFixed(1)}s`:s.ally?`守望僚机 ${Math.ceil(s.ally.hp)} / ${s.ally.maxHp} HP`:s.ranks.wingman?`僚机重建 ${Math.ceil(s.allyRevive)}s`:'击败敌人获得经验 · 升级三选一'
+  drawPixelHud(s)
+  $('touch-roll').classList.toggle('cooling',s.rollCooldown>0);$('touch-roll').setAttribute('aria-label',s.rollCooldown>0?`翻滚冷却 ${s.rollCooldown.toFixed(1)} 秒`:'翻滚闪避')
   const entries=Object.entries(s.ranks),signature=JSON.stringify(entries)
   if(updateCombatHud.signature!==signature){updateCombatHud.signature=signature;$('passive-count').textContent=entries.reduce((n,[,v])=>n+v,0);$('passive-list').replaceChildren();for(const[id,n]of entries){const row=document.createElement('div');row.title=upgradeById[id].description;row.textContent=`${upgradeById[id].name} · ${n}`;$('passive-list').append(row)}if(!entries.length)$('passive-list').textContent='尚未获得被动'}
   $('radar-label').textContent=`RADAR / ${s.stats.radarRange} M`
@@ -119,7 +118,7 @@ paintSettings()
 function layout() {
   const cw = root.clientWidth, ch = root.clientHeight
   if (!cw || !ch) return
-  const px = Math.round(params.pixelSize || Math.min(12, Math.max(2, Math.sqrt(cw * ch / 100000))))
+  const px = touchScreen?Math.max(2,Math.round(params.pixelSize)-1):Math.round(params.pixelSize || Math.min(12, Math.max(2, Math.sqrt(cw * ch / 100000))))
   const lw = Math.ceil(cw / px), lh = Math.ceil(ch / px)
   if (world.width !== lw || world.height !== lh) { world.width = lw; world.height = lh; scene.resize(lw, lh); image = null }
   world.style.width = `${lw * px}px`; world.style.height = `${lh * px}px`
@@ -154,7 +153,8 @@ function tick(now) {
     if (key === 'ShiftLeft' || key === 'ShiftRight' || controls.boost) boost = true
   }
   if (controls.boost || controls.pointerBoost) boost = true
-  scene.setKeys(turn + controls.turn, climb + controls.climb, boost, controls.thrust)
+  const touchTurn=(controls.touchRight?1:0)-(controls.touchLeft?1:0)
+  scene.setKeys(turn + controls.turn + (touchTurn||mobile?.turn||0), climb + controls.climb, boost, controls.thrust)
   scene.step(dt); combat.step(dt)
   const state = combat.state
   const t = scene.telemetry
@@ -196,20 +196,20 @@ setViewLabel()
 function setCombat(value) {
   clearInputs();$('upgrade-screen').hidden=true
   if (value && !combat.state.active) {
-    combat.start(); combatHud.hidden = false; $('radar-wrap').hidden = false; $('touch-fire').hidden = !root.classList.contains('touch')
-    $('score').textContent = '000000'; $('mode-label').textContent = '海岛飞行队 / 原版肉鸽'; $('combat-toggle').innerHTML = '退出空战 <span>C</span>'
+    combat.start(); combatHud.hidden = false; $('radar-wrap').hidden = false;root.classList.add('in-combat')
+    $('mode-label').textContent = '海岛飞行队 / 原版肉鸽'; $('combat-toggle').innerHTML = '退出空战 <span>C</span>'
     $('passive-panel').hidden=false;updateCombatHud()
-    hint.textContent = root.classList.contains('touch') ? '拖动转向 · 按钮射击 / 加速 / 翻滚 · 升级三选一' : '左键加速 · 右键射击 · Q 翻滚无敌 · 击杀升级三选一'
+    hint.textContent = root.classList.contains('touch') ? '自动开火 · 左侧翻滚 · 右侧加速 · 左右倾斜转向' : '自动开火 · 左键 / Q 翻滚 · 右键 / Shift 加速'
     revealHint(); $('result-screen').hidden = true
   } else if (!value && combat.state.active) {
-    combat.stop(); combatHud.hidden = true; $('radar-wrap').hidden = true; $('touch-fire').hidden = true; $('result-screen').hidden = true
+    combat.stop(); combatHud.hidden = true; $('radar-wrap').hidden = true; $('result-screen').hidden = true;root.classList.remove('in-combat')
     $('passive-panel').hidden=true
     $('mode-label').textContent = '海岛飞行队 / 自由飞行'; $('combat-toggle').innerHTML = '开始空战 <span>C</span>'
     hint.textContent = root.classList.contains('touch') ? '拖动转向 · 轻触翻滚 · 长按加速 · 视角切换' : '移动鼠标转向 · 单击翻滚 · 长按加速 · 空格切换视角'; revealHint(); showMessage('返回自由飞行')
   }
   root.focus({preventScroll:true})
 }
-$('combat-toggle').addEventListener('click', () => setCombat(!combat.state.active))
+$('combat-toggle').addEventListener('click', () => {setCombat(!combat.state.active);if(touchScreen){mobile.enable();mobile.landscape()}})
 $('view-toggle').addEventListener('click', toggleView)
 $('settings-toggle').addEventListener('click', () => { settings.hidden = false })
 $('settings-close').addEventListener('click', () => { settings.hidden = true; root.focus({preventScroll:true}) })
@@ -237,17 +237,16 @@ window.addEventListener('keydown', e => {
   else if (e.code === 'KeyF') document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen?.()
   else if (e.code === 'KeyH') { hiddenUi = !hiddenUi; root.classList.toggle('ui-hidden', hiddenUi) }
   else if (e.code === 'Enter' && combat.state.over) $('restart').click()
-  else if (e.code === 'KeyJ' || e.code === 'KeyX') { controls.fire=true; combat.setFiring(true) }
   if (FLY[e.code]) keys.add(e.code)
   revealHint()
 })
 window.addEventListener('keyup', e => {
   keys.delete(e.code)
-  if (e.code === 'KeyJ' || e.code === 'KeyX') { controls.fire=false; combat.setFiring(false) }
 })
-window.addEventListener('blur', clearInputs)
+window.addEventListener('blur', ()=>{clearInputs();mobile?.reset()})
+document.addEventListener('visibilitychange',()=>{if(document.hidden)clearInputs()})
 
-function pointerPosition(e) { const r = world.getBoundingClientRect(); scene.pointerMove((e.clientX - r.left) / scale, (e.clientY - r.top) / scale) }
+function pointerPosition(e) {const p=mobile.coordinates(e.clientX,e.clientY);scene.pointerMove((p.x-parseFloat(world.style.left||0))/scale,(p.y-parseFloat(world.style.top||0))/scale)}
 root.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') root.focus({preventScroll:true}) })
 root.addEventListener('pointermove', e => {
   if (e.target.closest('.ui') || paused || combat.state.selecting || combat.state.over) return
@@ -259,23 +258,24 @@ root.addEventListener('pointerdown', e => {
   if (e.target.closest('.ui') || paused || combat.state.selecting || combat.state.over) return
   pointerPosition(e); root.focus({preventScroll:true})
   if (e.pointerType === 'touch') {
-    root.classList.add('touch'); $('touch-controls').hidden = false; $('touch-fire').hidden = !combat.state.active
+    if(!root.classList.contains('touch')){root.classList.add('touch');scene.setViewportScale(.62);mobile.layout();pointerPosition(e)}
+    $('touch-controls').hidden = false
     if (controls.touchId !== undefined) return
     controls.touchId=e.pointerId; controls.downX=e.clientX; controls.downY=e.clientY; controls.pointerDown=true; controls.dragged=false; controls.downAt=performance.now()
     try { root.setPointerCapture(e.pointerId) } catch {}
   } else {
     controls.pointerDown=true; controls.downX=e.clientX; controls.downY=e.clientY; controls.downAt=performance.now(); controls.dragged=false
-    if (e.button === 0) {if(combat.state.active)controls.pointerBoost=true;else scene.press()}
-    if (e.button === 2) { controls.pointerFire=true; combat.setFiring(true) }
+    if (e.button === 0) {if(combat.state.active)roll();else scene.press()}
+    if (e.button === 2) controls.pointerBoost=true
     try { root.setPointerCapture(e.pointerId) } catch {}
   }
 })
 root.addEventListener('pointerup', e => {
-  if (e.target.closest('.ui') && e.pointerType !== 'touch') return
+  if(e.target.closest('.ui')&&!controls.pointerDown)return
   if (e.pointerType === 'touch' && controls.touchId !== e.pointerId) return
   const tap = !controls.dragged && performance.now()-controls.downAt<260
   if (e.pointerType === 'touch' && tap && !combat.state.active) scene.roll()
-  else if (e.pointerType !== 'touch') { if(e.button===0){controls.pointerBoost=false;if(!combat.state.active)scene.release()}if(e.button===2){controls.pointerFire=false;combat.setFiring(controls.fire)} }
+  else if (e.pointerType !== 'touch') {if(e.button===0&&!combat.state.active)scene.release();if(e.button===2)controls.pointerBoost=false}
   controls.pointerDown=false; controls.touchId=undefined
   if (e.pointerType === 'touch') scene.pointerLeave()
 })
@@ -283,13 +283,15 @@ root.addEventListener('pointercancel', () => {clearInputs();controls.touchId=und
 root.addEventListener('contextmenu', e => e.preventDefault())
 
 function holdButton(id, onDown, onUp) {
-  const button=$(id); let held=false
-  const release=e=>{if(!held)return;held=false;onUp();button.classList.remove('pressed');try{button.releasePointerCapture(e.pointerId)}catch{};root.focus({preventScroll:true})}
-  button.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();held=true;button.classList.add('pressed');try{button.setPointerCapture(e.pointerId)}catch{};onDown()})
+  const button=$(id); let held=null
+  const release=e=>{e.stopPropagation();if(held===null||(e.pointerId!==undefined&&e.pointerId!==held))return;held=null;onUp();button.classList.remove('pressed');try{button.releasePointerCapture(e.pointerId)}catch{};root.focus({preventScroll:true})}
+  button.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();if(paused||combat.state.selecting||combat.state.over||held!==null)return;held=e.pointerId;scene.pointerLeave();button.classList.add('pressed');try{button.setPointerCapture(e.pointerId)}catch{};onDown()})
   button.addEventListener('pointerup',release);button.addEventListener('pointercancel',release);button.addEventListener('lostpointercapture',release)
+  root.addEventListener('flight-input-reset',()=>{held=null;button.classList.remove('pressed')})
 }
 holdButton('touch-boost',()=>{controls.boost=true;keys.add('TouchBoost')},()=>{controls.boost=false;keys.delete('TouchBoost')})
-holdButton('touch-fire',()=>{controls.fire=true;combat.setFiring(true)},()=>{controls.fire=false;combat.setFiring(false)})
+holdButton('touch-left',()=>{controls.touchLeft=true},()=>{controls.touchLeft=false})
+holdButton('touch-right',()=>{controls.touchRight=true},()=>{controls.touchRight=false})
 $('touch-view').addEventListener('pointerdown',e=>e.stopPropagation());$('touch-roll').addEventListener('pointerdown',e=>{e.stopPropagation();roll()})
 $('touch-view').addEventListener('click',toggleView)
 
@@ -299,17 +301,17 @@ function gamepadStep() {
   if(paused||combat.state.selecting||combat.state.over)return
   let pad
   try { pad = [...navigator.getGamepads()].find(g => g?.connected && g.axes?.length>=2) } catch { return }
-  if (!pad) { controls.turn=controls.climb=controls.thrust=0; controls.padFire=false; combat.setFiring(controls.fire || controls.pointerFire); padName=''; return }
+  if (!pad) { controls.turn=controls.climb=controls.thrust=0;padName=''; return }
   const dead = x => Math.abs(x)<.16 ? 0 : Math.sign(x)*(Math.abs(x)-.16)/.84
   controls.turn=dead(pad.axes[0]); controls.climb=-dead(pad.axes[1]); controls.thrust=pad.buttons[7]?.value||0
   const pressed = i => !!pad.buttons[i]?.pressed
   if (pressed(0) && !controls.padRoll) roll()
   if (pressed(3) && !controls.padView) toggleView()
-  controls.padRoll=pressed(0); controls.padView=pressed(3); controls.padFire=pressed(5)
-  combat.setFiring(controls.fire||controls.pointerFire||controls.padFire)
+  controls.padRoll=pressed(0); controls.padView=pressed(3)
   if (padName !== padKind(pad.id)) {padName=padKind(pad.id);showMessage(`${padName} 已连接`,1100)}
 }
 const originalTick = tick
+mobile=createMobileControls(root,controls,clearInputs)
 // Sample gamepads continuously; animation remains driven by the same frame clock.
 const tickWithPad = now => { gamepadStep(); originalTick(now); requestAnimationFrame(tickWithPad) }
 requestAnimationFrame(tickWithPad)
@@ -323,4 +325,4 @@ if (new URLSearchParams(location.search).has('inspect')) {
   window.flightLab = { scene, combat, params, setCombat, setPaused, applyPreset, controls, keys,
     get paused() { return paused }, snapshot() { return { ...scene.telemetry, combat: combat.state, width: world.width, height: world.height } } }
 }
-if (touchScreen) hint.textContent = '拖动转向 · 轻触翻滚 · 长按加速 · 视角切换'
+if (touchScreen) hint.textContent = '横屏飞行 · 左右倾斜 / 按钮转向 · 左侧翻滚 · 右侧加速'

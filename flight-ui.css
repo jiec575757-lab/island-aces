@@ -1,0 +1,33 @@
+/* Compact combat display and landscape phone layout. */
+#flight .combat-hud{position:absolute;top:80px;left:24px;display:block;width:384px;min-width:0;padding:0;border:0;background:none;box-shadow:none;backdrop-filter:none;pointer-events:none}
+#pixel-hud{display:block;width:384px;height:50px;image-rendering:pixelated}
+#flight.in-combat .instruments,#flight.in-combat .shortcut-note{display:none}
+#flight.in-combat .hint{font-size:10px}
+.touch .topbar{top:max(8px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));gap:8px;align-items:center}
+.touch .identity{gap:5px}.touch .identity .emblem{font-size:18px}.touch .identity strong{font-size:9px;letter-spacing:.13em}.touch .identity small{font-size:7px;margin-top:2px}
+.touch .topbar nav{gap:4px}.touch .topbar nav button{padding:4px 7px;font-size:9px;height:30px;min-height:30px;border-radius:0}.touch .topbar nav #pause-toggle{display:block}.touch #view-label{font-size:9px}
+#flight.touch .combat-hud{top:49px;left:max(12px,env(safe-area-inset-left));width:192px}#flight.touch #pixel-hud{width:192px;height:25px}
+#flight.touch .passive-panel{top:46px;bottom:auto;right:max(12px,env(safe-area-inset-right));width:108px;max-height:26%;background:#0b233a66;border:0}
+.touch .passive-panel summary{font-size:8px;padding:5px 7px}.touch .passive-panel #passive-list{font-size:8px;padding:5px 7px;gap:5px}
+#flight.touch .radar-wrap{left:auto;right:max(14px,env(safe-area-inset-right));bottom:68px;transform:scale(.48);transform-origin:bottom right}.touch .radar-wrap>span{font-size:9px}
+#flight.touch .hint{top:auto;bottom:9px;left:50%;max-width:56%;width:max-content;font-size:8px;line-height:1.4;margin:0;text-align:center}
+#flight.touch .message{top:89px;max-width:60%;font-size:9px;padding:5px 8px}
+#flight.touch .instruments{bottom:74px;font-size:8px;gap:6px}.touch .instruments b{font-size:9px}
+#flight .touch-controls{left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(13px,env(safe-area-inset-bottom));gap:8px;align-items:flex-end}
+.touch-left,.touch-right{display:flex;align-items:flex-end;gap:7px}.touch-right{margin-left:auto}
+#flight .touch-controls button{width:46px;height:42px;min-height:42px;padding:3px;font-size:9px;border-radius:0;background:#0b2139a6;border:1px solid #c4e2ea66;touch-action:none}
+#flight .touch-controls #touch-left,#flight .touch-controls #touch-right{width:52px}
+#flight .touch-controls #touch-roll{border-color:#f4d19199;color:#ffe1ac;background:#403623a3}
+#flight .touch-controls #touch-boost{background:#a63e16b0;border-color:#ffa770b0;color:#ffe6c5}
+#flight .touch-controls button.pressed{background:#438798bc;border-color:#d7fffa}
+#flight .touch-controls #touch-roll.cooling{opacity:.48}
+#flight .touch-controls #tilt-toggle{position:absolute;bottom:52px;left:0;width:74px;height:26px;min-height:26px;font-size:8px;pointer-events:auto}
+#flight .touch-controls #tilt-toggle[aria-pressed=true]{color:#a2e8d5;border-color:#78c6b88c;background:#123f45a6}
+#flight.portrait-landscape{position:fixed;width:100dvh;height:100vw;min-height:0;left:50%;top:50%;transform:translate(-50%,-50%) rotate(90deg);transform-origin:center}
+#flight.touch .settings{width:min(310px,80%);font-size:10px}#flight.touch .panel-head{padding:10px 15px}#flight.touch .panel-head h2{font-size:16px}#flight.touch .panel-body{padding:10px 15px}#flight.touch .panel-footer{padding:8px 15px}
+#flight.touch .upgrade-screen{padding:12px 24px}#flight.touch .upgrade-dialog{width:min(640px,100%)}#flight.touch .upgrade-dialog>small{font-size:8px}#flight.touch .upgrade-dialog h1{font-size:18px;margin:7px 0}#flight.touch .upgrade-dialog>p{font-size:9px;margin:5px 0}
+#flight.touch .upgrade-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}
+#flight.touch .upgrade-card{display:flex;align-items:flex-start;flex-direction:column;min-height:150px;padding:11px 12px;gap:0}#flight.touch .upgrade-card>small{font-size:8px}#flight.touch .upgrade-card>strong{font-size:15px;margin:12px 0 7px}#flight.touch .upgrade-card>em{font-size:9px}#flight.touch .upgrade-card>p{font-size:9px;line-height:1.7;margin:10px 0 6px}#flight.touch .upgrade-card>span{display:none}#flight.touch .upgrade-dialog footer{font-size:8px}
+#flight.touch .dialog{padding:19px 25px;width:min(320px,80%)}#flight.touch .dialog h1{font-size:19px;margin:9px 0}#flight.touch .dialog p{font-size:10px;margin:10px 0}#flight.touch .dialog button{padding:8px;min-height:34px;font-size:11px}#flight.touch .result-score{font-size:26px;margin:12px 0}
+@media(max-width:560px){#flight:not(.touch) .combat-hud{left:14px;top:65px;width:288px}#flight:not(.touch) #pixel-hud{width:288px;height:37.5px}}
+@media(max-height:340px){#flight.touch .upgrade-card{min-height:130px}#flight.touch .upgrade-dialog h1{font-size:16px}#flight.touch .upgrade-choices{margin:8px 0}}

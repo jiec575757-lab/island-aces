@@ -639,6 +639,7 @@ export function createScene(initial) {
   let combatActors = []
   let combatEffects = []
   let combatFlight = null
+  let viewportScale = 1
   let combatMarkers = 0
   let colY = new Int32Array(0) // per screen column: the highest row the ground has reached
   let zbuf = new Float32Array(0) // per pixel: how deep into the view the world is, so it can hide a jet behind it
@@ -729,7 +730,7 @@ export function createScene(initial) {
       vQ = 0
       vTan = 1
       vLean = 1
-      vS = 1
+      vS = viewportScale
       vCy = H >> 1
       vSteerY = vCy
       vRoll = 0
@@ -749,7 +750,7 @@ export function createScene(initial) {
       cam.y += (lead.y - cs * ahead - follow.y) * vK
       cam.alt += (lead.z + COCKPIT_EYE * sc - follow.alt) * vK
       vQ = vC / dist + vK / COCKPIT_LOOK
-      vS = Math.exp(vC * Math.log(zoom) + vK * Math.log(focalIn / COCKPIT_LOOK))
+      vS = viewportScale * Math.exp(vC * Math.log(zoom) + vK * Math.log(focalIn / COCKPIT_LOOK))
       // how steeply it looks down: 45° overhead, the chase angle behind, level in the cockpit.
       // The chase camera drops behind the jet as it climbs and rises over it as it dives, and
       // camFix lifts or lowers it to stay clear of the hills and out of the cloud layer.
@@ -2252,6 +2253,7 @@ export function createScene(initial) {
   return {
     setCombat(actors, effects) { combatActors = actors; combatEffects = effects },
     setCombatFlight(value) { combatFlight = value },
+    setViewportScale(value) { viewportScale = clamp(value,.5,1) },
     get combatIndicators() { return combatMarkers },
     get telemetry() {
       const j = jets[0]

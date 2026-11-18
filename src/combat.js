@@ -10,7 +10,7 @@ export const ENEMIES={
   drone:{name:'自爆无人机',hp:2,speed:96,damage:16,xp:16,scale:.7,elite:true,model:'drone'},
   base:{name:'防空基地',hp:30,speed:0,damage:4,xp:45,scale:1,elite:true,model:'base',ground:true},
 }
-export function createCombat(scene,onEvent=()=>{},random=Math.random){
+export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=true}={}){
   let S={},actors=[],effects=[],ranks={},stats=deriveStats(),timers={},sequence=0,offers=[],pending=0,ally=null,allyRevive=0,nextWave=0
   let best=0;try{best=Number(localStorage.getItem('island-aces-best')||0)}catch{}
   const emit=(type,data={})=>onEvent(type,data)
@@ -41,7 +41,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random){
   }
   function start(){
     actors=[];effects=[];ranks={};stats=deriveStats();timers={};sequence=0;offers=[];pending=0;ally=null;allyRevive=0;nextWave=0
-    S={active:true,over:false,hp:100,shield:0,score:0,kills:0,wave:1,level:1,xp:0,elapsed:0,firing:false,shotClock:0,ammo:60,recovery:0,grace:1.8,invulnerable:0,rollCooldown:0,cloak:0}
+    S={active:true,over:false,hp:100,shield:0,score:0,kills:0,wave:1,level:1,xp:0,elapsed:0,firing:autoFire,shotClock:0,ammo:60,recovery:0,grace:1.8,invulnerable:0,rollCooldown:0,cloak:0}
     scene.release?.();scene.restart?.();makeWave();sync()
   }
   function stop(){save();S.active=false;S.over=false;S.firing=false;actors=[];effects=[];offers=[];pending=0;ally=null;sync()}
@@ -68,7 +68,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random){
     const desired=Math.min(18,4+(S.level-1)+(S.wave-1)),count=actors.filter(a=>a.hostile&&!a.dead).length
     if(count===0&&!nextWave){nextWave=3;emit('clear',{wave:S.wave})}
     if(count>0)for(let i=count;i<desired;i++){const types=['fast','tank','hunter','drone','base'];const a=spawn(types[sequence%5]);if(a)actors.push(a)}
-    emit('chosen',{id,rank:ranks[id]});offer();sync();return true
+    emit('chosen',{id,rank:ranks[id]});offer();if(!offers.length)S.firing=autoFire;sync();return true
   }
   function damage(amount){
     if(!S.active||S.over||offers.length||S.grace>0||S.invulnerable>0)return false
@@ -174,7 +174,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random){
   }
   S={active:false,over:false,hp:100,shield:0,score:0,kills:0,wave:1,level:1,xp:0,elapsed:0,ammo:60,rollCooldown:0,invulnerable:0,cloak:0}
   return{start,stop,step,damage,requestRoll,chooseUpgrade,awardXP,
-    setFiring(v){S.firing=!!(S.active&&!S.over&&!offers.length&&v)},
+    setFiring(v){S.firing=!!(S.active&&!S.over&&!offers.length&&(autoFire||v))},
     get state(){return{...S,best,enemies:actors.filter(a=>a.hostile&&!a.dead).length,selecting:offers.length>0,choices:offers.map(id=>({...upgradeById[id],rank:(ranks[id]||0)+1})),pending,ranks:{...ranks},stats:{...stats},xpNext:xpRequired(S.level),timers:{...timers},ally:ally&&!ally.dead?{hp:ally.hp,maxHp:ally.maxHp}:null,allyRevive}},
     get targets(){return actors},get effects(){return effects},
   }
