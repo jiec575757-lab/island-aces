@@ -1,4 +1,4 @@
-import { UPGRADES, upgradeById, deriveStats, xpRequired } from './upgrades.js?v=1.6.1'
+import { UPGRADES, upgradeById, deriveStats, xpRequired } from './upgrades.js?v=1.6.2'
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), angle=a=>a-Math.PI*2*Math.round(a/(Math.PI*2))
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)
 const segment=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy+(p.z-a.z)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);return Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t,p.z-a.z-dz*t)}
@@ -15,6 +15,7 @@ export const ENEMIES={
 }
 // Stronger units unlock by level; early encounters stay readable for new players.
 export const SPAWN_UNLOCKS={fast:3,tank:5,striker:8,hunter:10,drone:12,gunboat:14,base:16,warship:20}
+export const ENEMY_LIMITS={tank:3}
 const TYPES_BY_STRENGTH=['fighter','fast','tank','striker','hunter','drone','gunboat','base','warship']
 const unlockedTypes=level=>TYPES_BY_STRENGTH.filter(type=>type==='fighter'||SPAWN_UNLOCKS[type]<=level)
 export const enemyGrowth=level=>({move:Math.min(2,1+.025*(level-1)),projectile:Math.min(1.9,1+.025*(level-1)),volley:Math.min(5,1+Math.floor((level-1)/6))})
@@ -44,13 +45,15 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
     }
     return null
   }
-  function spawn(type='fighter',bearing,distance=185+(sequence%5)*24){
+  function spawn(type='fighter',bearing,distance=185+(sequence%5)*24,replacing=null){
+    // Apply the same cap to waves and level-up reinforcements; relocation keeps its own slot.
+    if(ENEMY_LIMITS[type]&&actors.filter(a=>a!==replacing&&a.hostile&&!a.dead&&a.type===type).length>=ENEMY_LIMITS[type])type='fighter'
     const p=scene.telemetry,id=sequence++,def=ENEMIES[type],a=bearing??p.yaw+id*2.399
     let pos={x:p.x+Math.sin(a)*distance,y:p.y-Math.cos(a)*distance,z:p.z+((id%3)-1)*12}
     if(def.ground){pos=landPos(p,Math.max(130,distance),a);if(!pos)return null}
     if(def.marine){pos=seaPos(p,Math.max(210,distance),a,type==='gunboat'?32:55);if(!pos)return null}
     if(!def.ground&&!def.marine)pos.z=Math.max(scene.groundAt(pos.x,pos.y)+18,pos.z)
-    const grade=S.level,hp=def.hp*(1+.18*(grade-1))
+    const grade=S.level,hp=def.hp
     return{...pos,id,type,...def,maxHp:hp,hp,grade,hostile:true,yaw:Math.atan2(p.x-pos.x,-(p.y-pos.y)),roll:0,pitch:0,stunt:-1,stuntDelay:0,shot:2.5+id%3*.6,sam:5+id%2,age:0,collision:0,dead:false}
   }
   function makeWave(){
@@ -91,7 +94,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
     if(['missile','flare','drone','ground','cloak','secondary'].includes(id))timers[id]=Math.min(timers[id]??1,1)
     if(id==='wingman')for(const ally of livingWings()){ally.maxHp=stats.wingHp;ally.hp=Math.min(ally.maxHp,ally.hp+15)}
     const grade=S.level
-    for(const a of actors)if(a.hostile&&a.grade<grade){const ratio=a.hp/a.maxHp;a.grade=grade;a.maxHp=ENEMIES[a.type].hp*(1+.18*(grade-1));a.hp=a.maxHp*ratio}
+    for(const a of actors)if(a.hostile&&a.grade<grade)a.grade=grade
     const desired=Math.min(18,4+(S.level-1)+(S.wave-1)),count=actors.filter(a=>a.hostile&&!a.dead).length
     if(count===0&&!nextWave){nextWave=3;emit('clear',{wave:S.wave})}
     if(count>0)for(let i=count;i<desired;i++){const pool=unlockedTypes(S.level),type=pool.length===1?pool[0]:pool[1+(i+sequence)%(pool.length-1)],a=spawn(type);if(a)actors.push(a)}
@@ -177,7 +180,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
       }
       a.age+=dt;a.shot-=dt;a.sam-=dt;a.collision=Math.max(0,a.collision-dt)
       const target=S.cloak>0?(livingWings()[0]||null):p,dx=p.x-a.x,dy=p.y-a.y,d=Math.hypot(dx,dy),growth=enemyGrowth(a.grade)
-      if(d>(a.marine?1400:950)){const n=spawn(a.type);if(n)Object.assign(a,n,{hp:a.hp,maxHp:a.maxHp});continue}
+      if(d>(a.marine?1400:950)){const n=spawn(a.type,undefined,undefined,a);if(n)Object.assign(a,n,{hp:a.hp,maxHp:a.maxHp});continue}
       let desired=target?Math.atan2(target.x-a.x,-(target.y-a.y)):a.yaw+.35
       if(target&&!a.ground&&!a.marine&&a.type!=='drone'){
         // Each fighter has a distinct pass lane. Separation prevents a train of identical pursuers.
@@ -198,7 +201,7 @@ export function createCombat(scene,onEvent=()=>{},random=Math.random,{autoFire=t
       else if(a.ground){a.z=scene.groundAt(a.x,a.y)+2;a.roll=0;a.pitch=0}
       if(target&&a.type!=='drone'&&dist(a,target)<(a.marine?700:a.ground?600:360)){
         if(a.shot<=0&&(a.ground||a.marine||Math.abs(delta)<.34)){
-          for(let i=0;i<growth.volley;i++)projectile({...a,z:a.z+(a.marine?16:a.ground?18:0)},target,{enemy:true,speed:(a.ground||a.marine?220:200)*growth.projectile,damage:a.damage*(1+.06*(a.grade-1)),life:3.6,offset:(i-(growth.volley-1)/2)*.115})
+          for(let i=0;i<growth.volley;i++)projectile({...a,z:a.z+(a.marine?16:a.ground?18:0)},target,{enemy:true,speed:(a.ground||a.marine?220:200)*growth.projectile,damage:a.damage,life:3.6,offset:(i-(growth.volley-1)/2)*.115})
           a.shot=Math.max(.42,(a.marine?(a.type==='warship'?.65:.8):a.ground?.5:a.type==='fast'?2.8:2.2)/(1+.025*(a.grade-1)))
         }
         if((a.type==='striker'||a.type==='hunter'||a.ground||a.type==='warship')&&a.sam<=0){projectile({...a,z:a.z+(a.marine?20:a.ground?18:0)},target,{enemy:true,kind:'missile',homing:a.type!=='striker',speed:(a.ground||a.marine?130:145)*growth.projectile,damage:a.ground||a.marine?7:10,life:6});a.sam=a.marine?5:a.ground?4:8}

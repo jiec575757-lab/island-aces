@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import {createCombat,ENEMIES,SPAWN_UNLOCKS,enemyGrowth} from '../src/combat.js'
+import {createCombat,ENEMIES,SPAWN_UNLOCKS,ENEMY_LIMITS,enemyGrowth} from '../src/combat.js'
 import {UPGRADES,deriveStats,xpRequired} from '../src/upgrades.js'
 import {createWeather} from '../src/weather.js'
 import {writeFile} from 'node:fs/promises'
@@ -33,6 +33,36 @@ function fixture(autoFire=false){
   checks.push('Exact unlock levels 3/5/8/10/12/14/16/20, no early elite bypass through waves, capped population and immediate unlocked-role introductions')
 }
 {
+  const f=fixture();f.park();assert.equal(ENEMY_LIMITS.tank,3)
+  const check=()=>{
+    const live=f.c.targets.filter(a=>a.hostile&&!a.dead),level=f.c.state.level
+    assert.ok(live.filter(a=>a.type==='tank').length<=3,`Too many heavy fighters at level ${level}, wave ${f.c.state.wave}`)
+    assert.equal(live.length,Math.min(18,4+level-1+f.c.state.wave-1),'Capped tanks are replaced so total population still fills')
+    for(const a of live){assert.equal(a.maxHp,ENEMIES[a.type].hp,`${a.type} max HP at level ${level}`);assert.equal(a.hp,a.maxHp);assert.equal(a.damage,ENEMIES[a.type].damage)}
+  }
+  for(let level=1;level<=45;level++){
+    check()
+    for(let wave=0;wave<4;wave++){f.c.targets.forEach(a=>a.dead=true);f.step(3.2);f.park();check()}
+    if(level<45)f.grant('shield')
+  }
+  checks.push('Across levels 1–45 and 180 replacement waves: at most three living heavy fighters, full encounter population, and every enemy keeps its type’s base HP and damage')
+}
+{
+  const f=fixture();f.park();for(let level=2;level<=5;level++)f.grant('shield')
+  // At level 5 the small type pool used to overpopulate encounters with heavy fighters.
+  for(let i=0;i<5&&f.c.targets.filter(a=>a.type==='tank'&&!a.dead).length<3;i++){f.c.targets.forEach(a=>a.dead=true);f.step(3.2);f.park()}
+  assert.equal(f.c.targets.filter(a=>a.type==='tank'&&!a.dead).length,3)
+  const tanks=f.c.targets.filter(a=>a.type==='tank'&&!a.dead),wounded=tanks[0];wounded.hp=7
+  f.grant('shield');assert.equal(wounded.hp,7);assert.equal(wounded.maxHp,16);assert.equal(wounded.grade,6)
+  Object.assign(wounded,{x:2000,y:0});f.step(.02)
+  assert.equal(wounded.type,'tank');assert.equal(wounded.hp,7);assert.equal(wounded.maxHp,16);assert.ok(Math.hypot(wounded.x,wounded.y)<950)
+  assert.equal(f.c.targets.filter(a=>a.type==='tank'&&!a.dead).length,3,'Relocation reuses its own heavy-fighter slot')
+  f.park();tanks.forEach(a=>a.dead=true);f.grant('shield')
+  assert.ok(f.c.targets.some(a=>a.type==='tank'&&!a.dead),'Dead heavy fighters release their slots for reinforcements')
+  assert.ok(f.c.targets.filter(a=>a.type==='tank'&&!a.dead).length<=3)
+  checks.push('Wounded heavy fighters retain exact HP on level-up and distant relocation at the three-aircraft cap; dead fighters free reinforcement slots')
+}
+{
   const f=fixture(true);f.park();const t=f.c.targets[0];Object.assign(t,{x:0,y:-460,z:110,hp:1000,maxHp:1000})
   f.step(.1);assert.equal(f.c.state.firing,false)
   f.grant('radar');Object.assign(t,{x:Math.sin(26*Math.PI/180)*460,y:-Math.cos(26*Math.PI/180)*460,z:110});f.step(.02)
@@ -59,7 +89,7 @@ function fixture(autoFire=false){
   for(const grade of [1,7,13,25]){
     const f=fixture();f.park();const a=f.c.targets[0];Object.assign(a,{...ENEMIES.fighter,type:'fighter',x:0,y:-220,z:110,yaw:Math.PI,grade,shot:0,sam:999,hp:1000,maxHp:1000})
     const before=a.y;f.step(.02);const bullets=f.c.effects.filter(e=>e.enemy&&e.kind==='bullet')
-    assert.equal(bullets.length,enemyGrowth(grade).volley);speeds.push({flight:Math.abs(a.y-before)/.02,bullet:bullets[0].speed})
+    assert.equal(bullets.length,enemyGrowth(grade).volley);assert.ok(bullets.every(b=>b.damage===ENEMIES.fighter.damage));speeds.push({flight:Math.abs(a.y-before)/.02,bullet:bullets[0].speed})
   }
   for(let i=1;i<speeds.length;i++){assert.ok(speeds[i].flight>speeds[i-1].flight);assert.ok(speeds[i].bullet>speeds[i-1].bullet)}
   for(const type of ['striker','hunter']){
@@ -74,10 +104,29 @@ function fixture(autoFire=false){
   checks.push('Higher levels increase measured flight speed, projectile speed and volley count; level-8 straight missiles differ from level-10 homing missiles; bases and ships fire faster')
 }
 {
+  for(const grade of [1,7,13,19,25,45])for(const [type,def]of Object.entries(ENEMIES)){
+    const f=fixture();f.park();const a=f.c.targets[0]
+    Object.assign(a,{...def,type,x:210,y:-180,z:def.ground||def.marine?2:110,yaw:Math.atan2(-210,-180),grade,shot:0,sam:0,collision:0,hp:def.hp,maxHp:def.hp})
+    if(type==='drone')a.speed=0
+    f.step(.02)
+    const bullets=f.c.effects.filter(e=>e.enemy&&e.kind==='bullet'),missiles=f.c.effects.filter(e=>e.enemy&&e.kind==='missile')
+    assert.equal(a.hp,def.hp);assert.equal(a.maxHp,def.hp);assert.equal(a.damage,def.damage)
+    assert.equal(bullets.length,type==='drone'?0:enemyGrowth(grade).volley,`${type} volley at grade ${grade}`)
+    assert.ok(bullets.every(e=>e.damage===def.damage),`${type} cannon damage at grade ${grade}`)
+    const hasMissile=['striker','hunter','base','warship'].includes(type)
+    assert.equal(missiles.length,hasMissile?1:0)
+    assert.ok(missiles.every(e=>e.damage===(def.ground||def.marine?7:10)),`${type} missile damage at grade ${grade}`)
+    if(type==='drone'){
+      f.step(2);Object.assign(a,{x:f.p.x,y:f.p.y,z:f.p.z});f.step(.02);assert.equal(f.c.state.hp,100-ENEMIES.drone.damage,'Drone contact damage remains fixed')
+    }
+  }
+  checks.push('Real cannon volleys for every armed enemy grow from one to five shots without increasing per-shot damage; aircraft/naval/base missile damage and drone contact damage stay fixed at grades 1/7/13/19/25/45')
+}
+{
   const draws=[],canvas={width:200,height:100,dataset:{},getContext(){return{clearRect(){},fillRect(...a){draws.push(a)},set fillStyle(v){}}}},changes=[],thunder=[]
   const w=createWeather(canvas,v=>changes.push(v.id),()=>thunder.push(true));w.setMode('auto');w.step(65.1);assert.equal(w.state.current,'cloudy');w.step(65.1);assert.equal(w.state.current,'rain');w.render();assert.ok(draws.length>100)
   w.setMode('storm');w.step(8.1);assert.equal(thunder.length,1);assert.ok(w.state.flash>0);w.render()
   w.setMode('fog');w.step(130);assert.equal(w.state.current,'fog');assert.equal(canvas.dataset.mode,'fog');assert.equal(w.setMode('bad'),false)
   checks.push('Weather cycles after 65 seconds, rain renders pixel drops, storms trigger thunder and fixed weather remains selected')
 }
-const report={version:'1.6.1',passed:true,checks};await writeFile(new URL('../artifacts/progression-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))
+const report={version:'1.6.2',passed:true,checks};await writeFile(new URL('../artifacts/progression-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))

@@ -64,5 +64,5 @@ let browser
     await p.evaluate(()=>flightLab.weather.setMode('rain'));await p.clock.runFor(100);await p.screenshot({path:out+`/systems-phone-${size.width}x${size.height}.png`});await p.close()
   }
   checks.push('Four phone sizes, both invert-Y settings: real touch drags climb on pull-back, descend on push-forward and turn diagonally; pointer capture, analog clamp, multitouch boost, extra-finger rejection, sensor override, release/cancel/pause/blur resets; compact HUD and radar fit')
-  assert.deepEqual(errors,[]);fs.writeFileSync(out+'/systems-browser-validation.json',JSON.stringify({version:'1.6.1',site:base,passed:true,checks,errors},null,2));console.log(JSON.stringify({checks,errors,passed:true},null,2));await browser.close()
+  assert.deepEqual(errors,[]);fs.writeFileSync(out+'/systems-browser-validation.json',JSON.stringify({version:'1.6.2',site:base,passed:true,checks,errors},null,2));console.log(JSON.stringify({checks,errors,passed:true},null,2));await browser.close()
 })().catch(async e=>{console.error(e);await browser?.close();process.exitCode=1})

@@ -1,12 +1,12 @@
-import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.6.1'
+import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.6.2'
 import { createFlameLayer } from './flame-layer.js'
-import { createCombat } from './combat.js?v=1.6.1'
-import { upgradeById } from './upgrades.js?v=1.6.1'
-import { createPixelHud } from './pixel-hud.js?v=1.6.1'
-import { createMobileControls } from './mobile-controls.js?v=1.6.1'
-import { createFlightAudio } from './flight-audio.js?v=1.6.1'
-import { createWeather } from './weather.js?v=1.6.1'
-import { createFlightStick } from './flight-stick.js?v=1.6.1'
+import { createCombat } from './combat.js?v=1.6.2'
+import { upgradeById } from './upgrades.js?v=1.6.2'
+import { createPixelHud } from './pixel-hud.js?v=1.6.2'
+import { createMobileControls } from './mobile-controls.js?v=1.6.2'
+import { createFlightAudio } from './flight-audio.js?v=1.6.2'
+import { createWeather } from './weather.js?v=1.6.2'
+import { createFlightStick } from './flight-stick.js?v=1.6.2'
 
 const $ = id => document.getElementById(id)
 const root = $('flight'), world = $('world'), flame = $('flame'), ctx = world.getContext('2d', { alpha: false })

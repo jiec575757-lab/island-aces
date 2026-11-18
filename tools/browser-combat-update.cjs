@@ -61,5 +61,5 @@ let browser
   }
   checks.push('Desktop and three phone sizes: default chase camera on entry and restart, icon/R refresh changes all three cards twice per level, disables when exhausted, keeps both clocks frozen and grants only the chosen new card; top-right tilt switch toggles on/off with recalibration; joystick has no explanatory text')
   checks.push('Actual chase/cockpit frames on desktop and phones show red friendly and enemy tracer pixels with no cyan tails at near, middle and far distances during day and night')
-  assert.deepEqual(errors,[]);const report={version:'1.6.1',site:base,passed:true,checks,visuals,errors};fs.writeFileSync(out+'/combat-update-browser-validation.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close()
+  assert.deepEqual(errors,[]);const report={version:'1.6.2',site:base,passed:true,checks,visuals,errors};fs.writeFileSync(out+'/combat-update-browser-validation.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close()
 })().catch(async e=>{console.error(e);await browser?.close();process.exitCode=1})
