@@ -1,11 +1,12 @@
-import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.5.0'
+import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.5.1'
 import { createFlameLayer } from './flame-layer.js'
-import { createCombat } from './combat.js?v=1.5.0'
-import { upgradeById } from './upgrades.js?v=1.5.0'
-import { createPixelHud } from './pixel-hud.js?v=1.5.0'
-import { createMobileControls } from './mobile-controls.js?v=1.5.0'
-import { createFlightAudio } from './flight-audio.js?v=1.5.0'
-import { createWeather } from './weather.js?v=1.5.0'
+import { createCombat } from './combat.js?v=1.5.1'
+import { upgradeById } from './upgrades.js?v=1.5.1'
+import { createPixelHud } from './pixel-hud.js?v=1.5.1'
+import { createMobileControls } from './mobile-controls.js?v=1.5.1'
+import { createFlightAudio } from './flight-audio.js?v=1.5.1'
+import { createWeather } from './weather.js?v=1.5.1'
+import { createFlightStick } from './flight-stick.js?v=1.5.1'
 
 const $ = id => document.getElementById(id)
 const root = $('flight'), world = $('world'), flame = $('flame'), ctx = world.getContext('2d', { alpha: false })
@@ -17,7 +18,7 @@ const scene = createScene(params), hint = $('hint'), settings = $('settings'), c
 const weather=createWeather($('weather'),value=>{scene.setWeather(value);$('weather-label').textContent=value.name},()=>audio.play('thunder'))
 try{const mode=localStorage.getItem('island-aces-weather')||'auto';weather.setMode(mode);$('weather-mode').value=mode}catch{}
 const drawPixelHud=createPixelHud($('pixel-hud'))
-const keys = new Set(), controls = { turn: 0, climb: 0, boost: false, thrust: 0, touchLeft:false, touchRight:false,touchUp:false,touchDown:false, tiltTurn:0 }
+const keys = new Set(), controls = { turn: 0, climb: 0, boost: false, thrust: 0, stickActive:false,stickTurn:0,stickClimb:0, tiltTurn:0 }
 const touchScreen = matchMedia('(pointer: coarse)').matches
 if (touchScreen) { root.classList.add('touch'); $('touch-controls').hidden = false; }
 scene.setViewportScale(touchScreen ? .62 : 1)
@@ -52,7 +53,7 @@ combat = createCombat(scene, (event, data) => {
   }
 })
 
-function clearInputs(){keys.clear();for(const k of ['boost','pointerBoost','pointerDown','touchLeft','touchRight','touchUp','touchDown'])controls[k]=false;controls.turn=controls.climb=controls.thrust=controls.tiltTurn=0;controls.touchId=undefined;combat?.setFiring(false);scene.setKeys(0,0,false,0);scene.pointerLeave();root.dispatchEvent(new Event('flight-input-reset'));document.querySelectorAll('.pressed').forEach(el=>el.classList.remove('pressed'))}
+function clearInputs(){keys.clear();for(const k of ['boost','pointerBoost','pointerDown','stickActive'])controls[k]=false;controls.turn=controls.climb=controls.thrust=controls.tiltTurn=controls.stickTurn=controls.stickClimb=0;controls.touchId=undefined;combat?.setFiring(false);scene.setKeys(0,0,false,0);scene.pointerLeave();root.dispatchEvent(new Event('flight-input-reset'));document.querySelectorAll('.pressed').forEach(el=>el.classList.remove('pressed'))}
 function roll(){if(paused)return;if(combat.state.active)combat.requestRoll();else scene.roll()}
 function renderUpgrade(){
   const s=combat.state;$('upgrade-screen').hidden=!s.selecting;if(!s.selecting)return
@@ -151,9 +152,9 @@ function tick(now) {
     if (key === 'ShiftLeft' || key === 'ShiftRight' || controls.boost) boost = true
   }
   if (controls.boost || controls.pointerBoost) boost = true
-  const touchTurn=(controls.touchRight?1:0)-(controls.touchLeft?1:0)
-  const touchClimb=((controls.touchUp?1:0)-(controls.touchDown?1:0))*(params.invertY?-1:1)
-  scene.setKeys(turn + controls.turn + (touchTurn||mobile?.turn||0), climb + controls.climb+touchClimb, boost, controls.thrust)
+  const touchTurn=controls.stickActive?controls.stickTurn:mobile?.turn||0
+  const touchClimb=(controls.stickClimb||0)*(params.invertY?-1:1)
+  scene.setKeys(turn + controls.turn + touchTurn, climb + controls.climb+touchClimb, boost, controls.thrust)
   scene.step(dt); combat.step(dt)
   weather.step(dt);weather.render()
   const state = combat.state
@@ -199,13 +200,13 @@ function setCombat(value) {
     combat.start(); combatHud.hidden = false; $('radar-wrap').hidden = false;root.classList.add('in-combat')
     $('mode-label').textContent = '海岛飞行队 / 原版肉鸽'; $('combat-toggle').innerHTML = '退出空战 <span>C</span>'
     $('passive-panel').hidden=false;updateCombatHud()
-    hint.textContent = root.classList.contains('touch') ? '自动开火 · 左侧转向 / 升降 · 右侧翻滚 / 加速' : '自动开火 · 左键 / Q 翻滚 · 右键 / Shift 加速'
+    hint.textContent = root.classList.contains('touch') ? '自动开火 · 左摇杆后拉爬升 / 前推下降 · 右侧翻滚 / 加速' : '自动开火 · 左键 / Q 翻滚 · 右键 / Shift 加速'
     revealHint(); $('result-screen').hidden = true
   } else if (!value && combat.state.active) {
     combat.stop(); combatHud.hidden = true; $('radar-wrap').hidden = true; $('result-screen').hidden = true;root.classList.remove('in-combat')
     $('passive-panel').hidden=true
     $('mode-label').textContent = '海岛飞行队 / 自由飞行'; $('combat-toggle').innerHTML = '开始空战 <span>C</span>'
-    hint.textContent = root.classList.contains('touch') ? '拖动转向 · 轻触翻滚 · 长按加速 · 视角切换' : '移动鼠标转向 · 单击翻滚 · 长按加速 · 空格切换视角'; revealHint(); showMessage('返回自由飞行')
+    hint.textContent = root.classList.contains('touch') ? '左摇杆：后拉爬升 / 前推下降 · 右侧翻滚 / 加速' : '移动鼠标转向 · 单击翻滚 · 长按加速 · 空格切换视角'; revealHint(); showMessage('返回自由飞行')
   }
   root.focus({preventScroll:true})
 }
@@ -293,10 +294,7 @@ function holdButton(id, onDown, onUp) {
   root.addEventListener('flight-input-reset',()=>{held=null;button.classList.remove('pressed')})
 }
 holdButton('touch-boost',()=>{controls.boost=true;keys.add('TouchBoost')},()=>{controls.boost=false;keys.delete('TouchBoost')})
-holdButton('touch-left',()=>{controls.touchLeft=true},()=>{controls.touchLeft=false})
-holdButton('touch-right',()=>{controls.touchRight=true},()=>{controls.touchRight=false})
-holdButton('touch-up',()=>{controls.touchUp=true},()=>{controls.touchUp=false})
-holdButton('touch-down',()=>{controls.touchDown=true},()=>{controls.touchDown=false})
+createFlightStick($('flight-stick'),root,controls,()=>!paused&&!combat.state.selecting&&!combat.state.over,()=>scene.pointerLeave())
 $('touch-roll').addEventListener('pointerdown',e=>{e.stopPropagation();roll()})
 
 const padKind = id => /054c|dualsense|dualshock|playstation/i.test(id) ? 'PlayStation' : '手柄'
@@ -329,4 +327,4 @@ if (new URLSearchParams(location.search).has('inspect')) {
   window.flightLab = { scene, combat, params, setCombat, setPaused, applyPreset, controls, keys,audio,weather,
     get paused() { return paused }, snapshot() { return { ...scene.telemetry, combat: combat.state, width: world.width, height: world.height } } }
 }
-if (touchScreen) hint.textContent = '横屏飞行 · 左侧转向 / 升降 · 右侧翻滚 / 加速'
+if (touchScreen) hint.textContent = '左摇杆：后拉爬升 / 前推下降 · 右侧翻滚 / 加速'

@@ -7,8 +7,8 @@
   <meta name="description" content="像素切片战机，海岛自由飞行、三视角切换与空战。全部素材和代码在本地运行。">
   <title>海岛飞行队 · ISLAND ACES</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23f0580e' d='M15 2h2v11l12 8v4l-12-4v6l4 3H11l4-3v-6L3 25v-4l12-8z'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=1.5.0">
-  <link rel="stylesheet" href="flight-ui.css?v=1.5.0">
+  <link rel="stylesheet" href="style.css?v=1.5.1">
+  <link rel="stylesheet" href="flight-ui.css?v=1.5.1">
 </head>
 <body>
   <main id="flight" tabindex="0" aria-label="海岛飞行队游戏区域">
@@ -36,7 +36,7 @@
     <div class="ui radar-wrap" id="radar-wrap" hidden><canvas id="radar" width="112" height="112" aria-label="附近敌机雷达"></canvas><span id="radar-label">RADAR / 500 M</span></div>
     <p id="hint" class="ui hint">移动鼠标转向 · 单击翻滚 · 长按加速 · 空格切换视角</p>
     <div class="ui touch-controls" id="touch-controls" hidden>
-      <div class="touch-left"><button id="touch-left" aria-label="向左转向">◀ 左倾</button><button id="touch-right" aria-label="向右转向">右倾 ▶</button><button id="touch-up" aria-label="拉升飞机">↑ 拉升</button><button id="touch-down" aria-label="下降飞机">↓ 下降</button></div>
+      <div class="touch-left"><div id="flight-stick" class="flight-stick" role="group" aria-label="飞行摇杆：后拉爬升，前推下降，左右转向，可斜向组合"><span class="stick-forward">前推 · 下降</span><span class="stick-left">◀</span><span class="stick-right">▶</span><span class="stick-back">后拉 · 爬升</span><i class="stick-ring"></i><i class="stick-knob"></i></div></div>
       <button id="tilt-toggle" aria-pressed="false" title="授权并校准手机倾斜转向">启用倾斜</button>
       <div class="touch-right"><button id="touch-roll" aria-label="翻滚闪避">翻滚</button><button id="touch-boost" aria-label="按住推进器加速">加速</button></div>
     </div>
@@ -74,12 +74,13 @@
           <label>最低离地距离 <output data-value="clearance"></output><input data-param="clearance" type="range" min="3" max="40" step="1"></label>
           <label>僚机数量<select data-param="wingmen"><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label>
           <label class="check"><input data-param="followPointer" type="checkbox">鼠标/触屏转向</label>
-          <label class="check"><input data-param="invertY" type="checkbox">飞行摇杆反转（下拉爬升）</label>
+          <label class="check"><input data-param="invertY" type="checkbox">键鼠 / 手柄升降反转（下拉爬升）</label>
           <label class="check"><input data-param="stunts" type="checkbox">无人操作时自动翻滚</label>
         </fieldset>
         <fieldset><legend>群岛与天气</legend>
           <label>天气<select id="weather-mode"><option value="auto">自动轮换</option><option value="clear">晴朗</option><option value="cloudy">多云</option><option value="rain">阵雨</option><option value="storm">雷雨</option><option value="fog">海雾</option></select></label>
-          <label>时段<select data-param="timeOfDay"><option value="day">晴日</option><option value="sunset">落日</option><option value="night">夜晚</option></select></label>
+          <label>时段<select data-param="timeOfDay"><option value="day">白天</option><option value="sunset">黄昏</option><option value="night">夜晚</option></select></label>
+          <p class="environment-note">时段与天气可自由组合，例如黄昏阵雨、夜晚雷雨。自动轮换只改变天气，时段由你选择。</p>
           <label>陆地比例 <output data-value="land"></output><input data-param="land" type="range" min="0.05" max="0.75" step="0.01"></label>
           <label>云量 <output data-value="clouds"></output><input data-param="clouds" type="range" min="0" max="1" step="0.05"></label>
           <label>世界种子<input data-param="seed" type="number" min="0" max="99999" step="1"></label>
@@ -91,7 +92,7 @@
           <label class="check"><input data-param="trails" type="checkbox">翼尖凝结尾迹</label><label class="check"><input data-param="shadow" type="checkbox">飞机投影</label>
         </fieldset>
         <fieldset><legend>音乐与声音</legend><label class="check"><input id="music" type="checkbox" checked>芯片背景音乐</label><label class="check"><input id="sound" type="checkbox" checked>引擎、武器与天气音效</label><label>主音量 <output id="volume-label">35%</output><input id="volume" type="range" min="0" max="100" value="35" step="5"></label></fieldset>
-        <section class="controls-help"><h3>操作手册</h3><p>鼠标移动转向 / WASD 或方向键飞行<br>空战：自动开火　左键 / Q 翻滚<br>右键 / Shift 加速　空格切换视角<br>C 切换空战　P 暂停　F 全屏　H 隐藏界面</p><p>手机：横屏游玩，左右倾斜手机或按左倾 / 右倾转向，左侧转向与升降，右侧翻滚与加速。首次倾斜需点击启用；手柄左摇杆飞行、A 翻滚、RT 加速。</p><p>空战：60 发弹药，初始每秒自动补充 3 发。敌人进入约 420 米、机头左右各约 18° 时自动开火，雷达被动可扩大射程和角度，无目标停火补弹。Q 翻滚初始无敌 0.45 秒、冷却 2.8 秒。碰撞与敌弹造成伤害；击败敌人获得经验，升级三选一，被动可重复升级。死亡后本局重置。自由飞行保留短按左键翻滚。</p></section>
+        <section class="controls-help"><h3>操作手册</h3><p>鼠标移动转向 / WASD 或方向键飞行<br>空战：自动开火　左键 / Q 翻滚<br>右键 / Shift 加速　空格切换视角<br>C 切换空战　P 暂停　F 全屏　H 隐藏界面</p><p>手机：横屏游玩，左下轮盘摇杆左右转向，后拉（往自己）爬升，前推下降，斜向可组合转弯与升降；右侧翻滚与加速。也可启用倾斜转向，摇杆操作时优先使用摇杆；手柄左摇杆飞行、A 翻滚、RT 加速。</p><p>空战：60 发弹药，初始每秒自动补充 3 发。敌人进入约 450 米、机头左右各约 25° 时自动开火，雷达被动可扩大射程和角度，无目标停火补弹。Q 翻滚初始无敌 0.45 秒、冷却 2.8 秒。碰撞与敌弹造成伤害；击败敌人获得经验，升级三选一，被动可重复升级。死亡后本局重置。自由飞行保留短按左键翻滚。</p></section>
         <div class="panel-links"><a href="models.html" target="_blank" rel="noopener">模型与切片素材 ↗</a><a href="肉鸽玩法说明.md" target="_blank" rel="noopener">肉鸽玩法说明 ↗</a><a href="制作说明.md" target="_blank" rel="noopener">源码与制作工具说明 ↗</a></div>
         <small class="provenance">飞行场景基于 UI8 Forge 公开分享 fighter，保留来源记录。空战与本地界面为本项目扩展。</small>
       </div>
@@ -99,6 +100,6 @@
     </aside>
     <div id="boot" role="status"><span class="boot-plane">✦</span><strong>ISLAND ACES</strong><small>正在生成海岛与云层…</small></div>
   </main>
-  <script type="module" src="src/app.js?v=1.5.0"></script>
+  <script type="module" src="src/app.js?v=1.5.1"></script>
 </body>
 </html>

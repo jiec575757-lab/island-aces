@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict'
 import {createCombat,ENEMIES,SPAWN_UNLOCKS,enemyGrowth} from '../src/combat.js'
-import {UPGRADES,deriveStats} from '../src/upgrades.js'
+import {UPGRADES,deriveStats,xpRequired} from '../src/upgrades.js'
 import {createWeather} from '../src/weather.js'
 import {writeFile} from 'node:fs/promises'
 const checks=[]
+{
+ assert.deepEqual([1,2,3,4,5].map(xpRequired),[40,60,84,112,144])
+ const f=fixture();f.park();f.c.awardXP(30);assert.equal(f.c.state.level,1);assert.equal(f.c.state.selecting,false)
+ f.c.awardXP(10);assert.equal(f.c.state.level,2);assert.equal(f.c.state.xp,0);assert.equal(f.c.state.xpNext,60);f.c.chooseUpgrade(f.c.state.choices[0].id)
+ f.c.awardXP(145);assert.equal(f.c.state.level,4);assert.equal(f.c.state.pending,2);assert.equal(f.c.state.xp,1);assert.equal(f.c.state.xpNext,112)
+ checks.push('Harder progression: three 10-XP kills no longer level up, four reach level 2; 40/60/84/112/144 thresholds consume XP and preserve overflow across queued levels')
+}
 function fixture(autoFire=false){
   const p={x:0,y:0,z:110,yaw:0,pitch:0,roll:0,speed:0},events=[];let wanted='rapid'
   const scene={get telemetry(){return{...p}},groundAt(){return 0},isLand(x){return x<60},restart(){},setCombat(){},setCombatFlight(){}}
@@ -28,11 +35,11 @@ function fixture(autoFire=false){
 {
   const f=fixture(true);f.park();const t=f.c.targets[0];Object.assign(t,{x:0,y:-460,z:110,hp:1000,maxHp:1000})
   f.step(.1);assert.equal(f.c.state.firing,false)
-  f.grant('radar');Object.assign(t,{x:Math.sin(.34)*460,y:-Math.cos(.34)*460,z:110});f.step(.02)
-  assert.equal(f.c.state.firing,true);assert.equal(f.c.state.stats.cannonRange,490);assert.ok(f.c.state.stats.cannonCone>.34)
-  const base=deriveStats();assert.equal(base.ammoRegen,3);assert.equal(base.cannonRange,420);assert.ok(Math.abs(base.cannonCone-Math.PI/10)<1e-9)
+  f.grant('radar');Object.assign(t,{x:Math.sin(26*Math.PI/180)*460,y:-Math.cos(26*Math.PI/180)*460,z:110});f.step(.02)
+  assert.equal(f.c.state.firing,true);assert.equal(f.c.state.stats.cannonRange,520);assert.ok(f.c.state.stats.cannonCone>26*Math.PI/180)
+  const base=deriveStats();assert.equal(base.ammoRegen,3);assert.equal(base.cannonRange,450);assert.ok(Math.abs(base.cannonCone-25*Math.PI/180)<1e-9)
   const refill=fixture();refill.park();refill.c.setFiring(true);refill.step(15);refill.c.setFiring(false);const ammo=refill.c.state.ammo;refill.step(1);assert.ok(Math.abs(refill.c.state.ammo-ammo-3)<1e-7)
-  checks.push('Narrow 420m / ±18° gate, radar increases range and cone, base reload measured at exactly 3 rounds per second')
+  checks.push('450m / +/-25 degrees gate, radar increases range and cone, base reload measured at exactly 3 rounds per second')
 }
 {
   const f=fixture();f.park()
@@ -73,4 +80,4 @@ function fixture(autoFire=false){
   w.setMode('fog');w.step(130);assert.equal(w.state.current,'fog');assert.equal(canvas.dataset.mode,'fog');assert.equal(w.setMode('bad'),false)
   checks.push('Weather cycles after 65 seconds, rain renders pixel drops, storms trigger thunder and fixed weather remains selected')
 }
-const report={version:'1.5.0',passed:true,checks};await writeFile(new URL('../artifacts/progression-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))
+const report={version:'1.5.1',passed:true,checks};await writeFile(new URL('../artifacts/progression-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))

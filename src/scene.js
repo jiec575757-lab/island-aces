@@ -8,7 +8,7 @@
 // Two views share one camera: the overhead sprite-stack view, and a chase view from behind
 // the jet. The camera slides between them, so the switch is a single continuous move.
 
-import { UNIT_MODELS, UNIT_STYLES } from './unit-models.js?v=1.5.0'
+import { UNIT_MODELS, UNIT_STYLES } from './unit-models.js?v=1.5.1'
 import { buildVoxelMesh } from './voxel-mesh.js'
 import { drawVoxelMesh } from './voxel-renderer.js'
 const combatMeshes=Object.fromEntries(Object.entries(UNIT_MODELS).map(([id,voxels])=>[id,buildVoxelMesh(voxels)]))

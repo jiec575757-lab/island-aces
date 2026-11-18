@@ -1,4 +1,4 @@
-import { UPGRADES, upgradeById, deriveStats, xpRequired } from './upgrades.js?v=1.5.0'
+import { UPGRADES, upgradeById, deriveStats, xpRequired } from './upgrades.js?v=1.5.1'
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), angle=a=>a-Math.PI*2*Math.round(a/(Math.PI*2))
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)
 const segment=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy+(p.z-a.z)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);return Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t,p.z-a.z-dz*t)}

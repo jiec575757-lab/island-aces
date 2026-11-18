@@ -20,11 +20,11 @@ export function createMobileControls(root,controls,clearInputs){
   async function enable(){
     if(!touch())return
     if(enabled){reset();return}
-    if(!window.DeviceOrientationEvent){button.textContent='使用转向按钮';return}
+    if(!window.DeviceOrientationEvent){button.textContent='使用摇杆';return}
     try{
-      if(typeof DeviceOrientationEvent.requestPermission==='function'&&await DeviceOrientationEvent.requestPermission()!=='granted'){button.textContent='使用转向按钮';return}
+      if(typeof DeviceOrientationEvent.requestPermission==='function'&&await DeviceOrientationEvent.requestPermission()!=='granted'){button.textContent='使用摇杆';return}
       enabled=true;button.textContent='校准倾斜';button.setAttribute('aria-pressed','true');reset()
-    }catch{button.textContent='使用转向按钮'}
+    }catch{button.textContent='使用摇杆'}
   }
   window.addEventListener('deviceorientation',e=>{
     if(!enabled||!Number.isFinite(e.beta)||!Number.isFinite(e.gamma))return

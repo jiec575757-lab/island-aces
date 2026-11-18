@@ -16,7 +16,6 @@
 #flight .touch-controls{left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(13px,env(safe-area-inset-bottom));gap:8px;align-items:flex-end}
 .touch-left,.touch-right{display:flex;align-items:flex-end;gap:7px}.touch-right{margin-left:auto}
 #flight .touch-controls button{width:46px;height:42px;min-height:42px;padding:3px;font-size:9px;border-radius:0;background:#0b2139a6;border:1px solid #c4e2ea66;touch-action:none}
-#flight .touch-controls #touch-left,#flight .touch-controls #touch-right{width:52px}
 #flight .touch-controls #touch-roll{border-color:#f4d19199;color:#ffe1ac;background:#403623a3}
 #flight .touch-controls #touch-boost{background:#a63e16b0;border-color:#ffa770b0;color:#ffe6c5}
 #flight .touch-controls button.pressed{background:#438798bc;border-color:#d7fffa}
@@ -50,11 +49,22 @@
 #flight.touch.in-combat .radar-wrap canvas{width:90px;height:90px}
 #flight.touch.in-combat .radar-wrap>span{top:99px;left:-7px;width:108px;font-size:7px}
 #flight.touch.in-combat .passive-panel{top:44px}
-#flight .touch-left{display:grid;grid-template-columns:repeat(2,52px);gap:6px}
 #flight .touch-right{gap:8px;align-self:end}
-#flight .touch-controls #touch-up,#flight .touch-controls #touch-down{width:52px;height:36px;min-height:36px;color:#c0eee8;background:#123a48b3}
 #flight .touch-controls #tilt-toggle{bottom:92px}
 #flight .touch-controls #touch-roll,#flight .touch-controls #touch-boost{width:54px;height:48px;min-height:48px}
 #flight.touch .hint{max-width:46%;font-size:7px;bottom:8px}
 #flight.touch .message{top:60px}
 @media(max-width:560px){#flight:not(.touch).in-combat .combat-hud{top:10px;width:288px;left:14px}#flight:not(.touch) #pixel-hud{width:288px;height:57px}}
+
+/* Flight stick: pull back to climb, push forward to descend; diagonals combine axes. */
+#flight .touch-left{display:block}
+.flight-stick{--stick-x:0px;--stick-y:0px;position:relative;width:116px;height:116px;border:1px solid #b8dce879;border-radius:50%;background:radial-gradient(circle,#153b4b87 0 28%,#0a243bb0 29% 63%,#37657873 64% 66%,#0a243bb0 67%);box-shadow:inset 0 0 0 5px #05233775;pointer-events:auto;touch-action:none;color:#d2e7df}
+.flight-stick:before,.flight-stick:after{content:'';position:absolute;background:#b8dfdf25;pointer-events:none}
+.flight-stick:before{left:16px;right:16px;top:50%;height:1px}.flight-stick:after{top:16px;bottom:16px;left:50%;width:1px}
+.flight-stick span{position:absolute;font-size:8px;line-height:10px;pointer-events:none;text-shadow:1px 1px #072338;z-index:2}
+.stick-forward{top:7px;left:0;right:0;text-align:center}.stick-back{bottom:7px;left:0;right:0;text-align:center;color:#ffdfa2}.stick-left{left:7px;top:53px}.stick-right{right:7px;top:53px}
+.stick-ring{position:absolute;inset:26px;border:1px dashed #bce2e14d;border-radius:50%;pointer-events:none}
+.stick-knob{position:absolute;left:50%;top:50%;width:34px;height:34px;transform:translate(calc(-50% + var(--stick-x)),calc(-50% + var(--stick-y)));background:#477487cf;border:2px solid #b4d9dd;border-radius:50%;box-shadow:0 3px 0 #041a2d99,inset 0 0 0 5px #17394d73;pointer-events:none}
+.flight-stick.engaged{border-color:#f1d09e}.flight-stick.engaged .stick-knob{border-color:#ffe5b5;background:#628e99}
+#flight .touch-controls #tilt-toggle{left:127px;bottom:74px}
+.environment-note{font-size:10px;line-height:1.7;color:#8eacbd;margin:-4px 0 16px}

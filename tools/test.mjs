@@ -5,6 +5,7 @@ import { UNIT_MODELS } from '../src/unit-models.js'
 import { decodeJet } from '../src/jet-model.js'
 import { createScene, DEFAULT_PARAMS } from '../src/scene.js'
 import { flightCoordinates, tiltAxis } from '../src/mobile-controls.js'
+import { stickAxes } from '../src/flight-stick.js'
 import { writeFile, mkdir } from 'node:fs/promises'
 await mkdir(new URL('../artifacts/',import.meta.url),{recursive:true})
 const checks=[]
@@ -33,7 +34,12 @@ function fixture(){
  assert.deepEqual(flightCoordinates(170,50,rect,false),{x:170,y:50})
  assert.ok(tiltAxis(20,0,90)>19.9&&tiltAxis(-20,0,90)<-19.9)
  assert.ok(tiltAxis(20,0,270)<-19.9);assert.equal(tiltAxis(0,15,0),15)
- checks.push('Rotated phone pointer transform and tilt axes work in both landscape orientations')
+ const center=stickAxes(3,0,40);assert.equal(center.turn,0);assert.equal(center.climb,0)
+ assert.equal(stickAxes(0,40,40).climb,1);assert.equal(stickAxes(0,-40,40).climb,-1)
+ assert.equal(stickAxes(-40,0,40).turn,-1);assert.equal(stickAxes(40,0,40).turn,1)
+ const diagonal=stickAxes(80,80,40);assert.ok(Math.abs(Math.hypot(diagonal.turn,diagonal.climb)-1)<1e-9);assert.ok(diagonal.turn>0&&diagonal.climb>0);assert.ok(Math.abs(Math.hypot(diagonal.x,diagonal.y)-40)<1e-9)
+ const half=stickAxes(22,0,40);assert.ok(Math.abs(half.turn-.5)<1e-9)
+ checks.push('Phone coordinate rotation, tilt axes, pull-back climb, push-forward descent, analog strength, radial dead zone and normalized diagonal stick travel')
 }
 {
  const p={x:0,y:0,z:110,yaw:0,pitch:0,speed:0},events=[],scene={get telemetry(){return p},groundAt(){return 0},setCombat(){},setCombatFlight(){}}
@@ -42,17 +48,17 @@ function fixture(){
  tick(20);assert.equal(c.state.firing,false);assert.equal(c.state.ammo,60);assert.equal(shots(),0)
  c.setFiring(true);tick(5);assert.equal(shots(),0,'Mouse state cannot force automatic fire into empty sky')
  const t=c.targets[0],place=(bearing,d,z=110)=>Object.assign(t,{x:Math.sin(bearing)*d,y:-Math.cos(bearing)*d,z,hp:10000,maxHp:10000,hostile:true,dead:false})
- for(const [bearing,d,z]of [[0,421,110],[Math.PI/2,100,110],[Math.PI,100,110],[.33,200,110],[-.33,200,110],[0,410,300]]){place(bearing,d,z);tick(6);assert.equal(c.state.firing,false);assert.equal(shots(),0,'Outside distance/front cone must not fire')}
- place(0,419);tick(1);assert.equal(c.state.firing,true);assert.equal(shots(),1);assert.ok(c.state.ammo<60)
+ for(const [bearing,d,z]of [[0,451,110],[Math.PI/2,100,110],[Math.PI,100,110],[26*Math.PI/180,200,110],[-26*Math.PI/180,200,110],[0,400,450]]){place(bearing,d,z);tick(6);assert.equal(c.state.firing,false);assert.equal(shots(),0,'Outside distance/front cone must not fire')}
+ place(0,449);tick(1);assert.equal(c.state.firing,true);assert.equal(shots(),1);assert.ok(c.state.ammo<60)
  c.setFiring(false);assert.equal(c.state.firing,true,'Releasing controls preserves target-triggered fire')
  place(0,200);tick(30);assert.ok(t.hp<10000,'In-range frontal cannon actually hits')
  const ammo=c.state.ammo,shotCount=shots();place(Math.PI,100);tick(15);assert.equal(c.state.firing,false);assert.equal(shots(),shotCount);assert.ok(c.state.ammo>ammo,'Losing target stops fire and restores ammunition')
- for(const bearing of [.30,-.30]){place(bearing,200);const before=shots();tick(6);assert.ok(shots()>before,'Both base 18-degree front-cone edges fire')}
+ for(const bearing of [24.9*Math.PI/180,-24.9*Math.PI/180]){place(bearing,200);const before=shots();tick(6);assert.ok(shots()>before,'Both base 25-degree front-cone edges fire')}
  place(0,200);t.hostile=false;const before=shots();tick(6);assert.equal(shots(),before);t.hostile=true;t.dead=true;tick(1);assert.equal(shots(),before)
- // A closer side target must not hide the farther target in front; yaw wraps at ±π.
+ // A closer side target must not hide the farther target in front; yaw wraps at +/- pi.
  const live=c.targets.find(a=>a.hostile&&!a.dead),side=c.targets.find(a=>a!==live);Object.assign(side,{x:60,y:0,z:110});Object.assign(live,{x:0,y:-300,z:110,hp:10000,maxHp:10000});tick(6);assert.ok(shots()>before)
  Object.assign(live,{x:Math.sin(-Math.PI+.05)*200,y:-Math.cos(-Math.PI+.05)*200,z:110});p.yaw=Math.PI-.05;const wrapped=shots();tick(6);assert.ok(shots()>wrapped)
- c.awardXP(25);assert.equal(c.state.firing,false);const time=c.state.elapsed;c.step(.05);assert.equal(c.state.elapsed,time)
+ c.awardXP(c.state.xpNext);assert.equal(c.state.firing,false);const time=c.state.elapsed;c.step(.05);assert.equal(c.state.elapsed,time)
  c.chooseUpgrade(c.state.choices[0].id);assert.equal(c.state.firing,true);c.stop();assert.equal(c.state.firing,false)
  checks.push('Automatic cannon requires a live hostile in range and front cone; stops on loss, conserves ammo, handles wraparound and resumes after upgrade')
 }
@@ -65,7 +71,7 @@ function fixture(){
  checks.push('Four actual spawn positions surround player and all face inward')
 }
 {
- const f=fixture();f.park();f.c.awardXP(25);assert.equal(f.c.state.level,2);assert.equal(f.c.state.choices.length,3);assert.equal(new Set(f.c.state.choices.map(u=>u.id)).size,3)
+ const f=fixture();f.park();f.c.awardXP(f.c.state.xpNext);assert.equal(f.c.state.level,2);assert.equal(f.c.state.choices.length,3);assert.equal(new Set(f.c.state.choices.map(u=>u.id)).size,3)
  const time=f.c.state.elapsed,choices=f.c.state.choices;f.tick(2);assert.equal(f.c.state.elapsed,time);assert.deepEqual(f.c.state.choices,choices);assert.equal(f.c.chooseUpgrade('invalid'),false)
  f.c.chooseUpgrade(choices[0].id);assert.equal(f.c.state.enemies,5);assert.ok(f.c.targets.every(a=>a.grade===2))
  f.c.awardXP(500);const pending=f.c.state.pending;assert.ok(pending>3);for(let i=0;i<pending;i++)f.c.chooseUpgrade(f.c.state.choices[0].id)

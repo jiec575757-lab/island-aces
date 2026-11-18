@@ -19,7 +19,7 @@ export const UPGRADES = [
   ['radar','广域雷达','雷达 +150 米，机炮射程 +70 米，单侧索敌角 +2°（最高 30°）'],
 ].map(([id,name,description])=>({id,name,description}))
 export const upgradeById=Object.fromEntries(UPGRADES.map(u=>[u.id,u]))
-export const xpRequired=level=>25+(level-1)*12
+export const xpRequired=level=>40+18*(level-1)+2*(level-1)**2
 export function deriveStats(r={}){
   const n=id=>r[id]||0, timer=(base,id,step,min)=>Math.max(min,base-step*(Math.max(0,n(id)-1)))
   return {
@@ -36,6 +36,6 @@ export function deriveStats(r={}){
     killHeal:1.5*n('vampire'), cloakInterval:timer(22,'cloak',2,10), cloakDuration:Math.min(6,2+n('cloak')),
     secondaryInterval:Math.max(.32,1.1-.08*n('secondary')), secondaryDamage:.3*(1+.05*Math.max(0,n('secondary')-1)),
     radarRange:620+150*n('radar'), autoRange:460+50*n('radar'),
-    cannonRange:420+70*n('radar'), cannonCone:Math.min(30,18+2*n('radar'))*Math.PI/180
+    cannonRange:450+70*n('radar'), cannonCone:Math.min(30,25+2*n('radar'))*Math.PI/180
   }
 }

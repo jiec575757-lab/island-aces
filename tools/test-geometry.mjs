@@ -51,4 +51,4 @@ combat.targets.filter(a=>a!==ship).forEach(a=>Object.assign(a,{x:650,y:200,shot:
 combat.effects.push({kind:'bullet',enemy:false,x:ship.x,y:ship.y,z:12,px:ship.x,py:ship.y,pz:12,vx:0,vy:0,vz:0,damage:100,life:1,maxLife:1})
 step(1);assert.ok(ship.dead,'Naval hull accepts player fire');assert.ok(combat.state.kills>0);assert.ok(combat.state.xp>0||combat.state.selecting)
 checks.push('Both sea enemies spawn, patrol, fire, accept hull hits and grant XP; frigate launches homing SAMs')
-const report={version:'1.5.0',passed:true,checks};await writeFile(new URL('../artifacts/geometry-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))
+const report={version:'1.5.1',passed:true,checks};await writeFile(new URL('../artifacts/geometry-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))
