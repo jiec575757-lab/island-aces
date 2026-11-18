@@ -8,7 +8,7 @@
 // Two views share one camera: the overhead sprite-stack view, and a chase view from behind
 // the jet. The camera slides between them, so the switch is a single continuous move.
 
-import { UNIT_MODELS, UNIT_STYLES } from './unit-models.js?v=1.5.1'
+import { UNIT_MODELS, UNIT_STYLES } from './unit-models.js?v=1.6.0'
 import { buildVoxelMesh } from './voxel-mesh.js'
 import { drawVoxelMesh } from './voxel-renderer.js'
 const combatMeshes=Object.fromEntries(Object.entries(UNIT_MODELS).map(([id,voxels])=>[id,buildVoxelMesh(voxels)]))
@@ -2086,6 +2086,31 @@ export function createScene(initial) {
     combatFaces+=drawVoxelMesh(mesh,j,basis,size,{x:cam.x,y:cam.y,z:cam.alt,cos:vCos,sin:vSin,q:vQ,scale:vS,tan:vTan,cx:vCx,cy:vCy},fb,zbuf,W,H,[-sunX,-sunY,1.1],p.timeOfDay==='night')
   }
 
+  function drawBulletTracer(e,x,y,depth,scale,dot){
+    // A frame-to-frame segment nearly disappears when travelling along the camera axis.
+    // Give perspective tracers a stable world-space tail and a small minimum screen length.
+    const speed=Math.hypot(e.vx,e.vy,e.vz)||1,length=e.enemy?24:36
+    let tx=x,ty=y,tailDepth=depth
+    if(project(e.x-e.vx/speed*length,e.y-e.vy/speed*length,e.z-e.vz/speed*length)){tx=prX;ty=prY;tailDepth=prV}
+    let dx=tx-x,dy=ty-y,distance=Math.hypot(dx,dy)
+    if(distance<.1){dx=x-vCx;dy=y-vCy;distance=Math.hypot(dx,dy);if(distance<.1){dx=0;dy=1;distance=1}}
+    const visibleLength=clamp(distance,6,34),steps=Math.ceil(visibleLength)
+    dx=dx/distance*visibleLength;dy=dy/distance*visibleLength
+    const rim=e.enemy?pack(76,30,25):pack(12,53,67)
+    const glow=e.enemy?pack(213,78,38):pack(48,169,184)
+    const body=e.enemy?pack(255,135,64):pack(153,248,240)
+    const core=e.enemy?pack(255,244,193):pack(248,255,238)
+    const radius=e.enemy?Math.max(2,Math.min(4,Math.round(2+scale))):Math.max(1,Math.min(2,Math.round(scale)))
+    for(let i=steps;i>=0;i--){
+      const t=i/steps,z=depth+(tailDepth-depth)*t,px=x+dx*t,py=y+dy*t
+      dot(px,py,z,glow,1)
+      dot(px,py,z-.1,t<.55?body:glow)
+      if(t<.65)dot(px,py,z-.2,core)
+    }
+    dot(x,y,depth,rim,radius+1);dot(x,y,depth-.1,body,radius)
+    dot(x,y,depth-.2,core,Math.max(0,radius-1))
+  }
+
   function drawCombatEffects() {
     if (!combatActors.length && !combatEffects.length) return
     const dot = (x, y, depth, color, radius = 0) => {
@@ -2102,6 +2127,7 @@ export function createScene(initial) {
       const x = prX, y = prY, d = prV, scale = prM
       if (x < -60 || y < -60 || x > W + 60 || y > H + 60) continue
       if (e.kind === 'bullet' || e.kind === 'missile' || e.kind === 'drone') {
+        if(e.kind==='bullet'&&vC+vK>.15){drawBulletTracer(e,x,y,d,scale,dot);continue}
         const color = e.enemy ? pack(255, 107, 62) : pack(255, 244, 173)
         // Enemy rounds have a dark rim, large orange body, bright core and a visible tail.
         // The damage radius is unchanged: larger art makes the existing hitbox legible.

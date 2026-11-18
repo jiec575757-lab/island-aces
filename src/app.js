@@ -1,12 +1,12 @@
-import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.5.1'
+import { createScene, DEFAULT_PARAMS } from './scene.js?v=1.6.0'
 import { createFlameLayer } from './flame-layer.js'
-import { createCombat } from './combat.js?v=1.5.1'
-import { upgradeById } from './upgrades.js?v=1.5.1'
-import { createPixelHud } from './pixel-hud.js?v=1.5.1'
-import { createMobileControls } from './mobile-controls.js?v=1.5.1'
-import { createFlightAudio } from './flight-audio.js?v=1.5.1'
-import { createWeather } from './weather.js?v=1.5.1'
-import { createFlightStick } from './flight-stick.js?v=1.5.1'
+import { createCombat } from './combat.js?v=1.6.0'
+import { upgradeById } from './upgrades.js?v=1.6.0'
+import { createPixelHud } from './pixel-hud.js?v=1.6.0'
+import { createMobileControls } from './mobile-controls.js?v=1.6.0'
+import { createFlightAudio } from './flight-audio.js?v=1.6.0'
+import { createWeather } from './weather.js?v=1.6.0'
+import { createFlightStick } from './flight-stick.js?v=1.6.0'
 
 const $ = id => document.getElementById(id)
 const root = $('flight'), world = $('world'), flame = $('flame'), ctx = world.getContext('2d', { alpha: false })
@@ -65,6 +65,8 @@ function renderUpgrade(){
   box.firstElementChild?.focus({preventScroll:true})
 }
 function selectUpgrade(id){if(combat.chooseUpgrade(id)){clearInputs();renderUpgrade();updateCombatHud();last=performance.now();if(!combat.state.selecting)root.focus({preventScroll:true})}}
+function refreshUpgrades(){if(combat.refreshUpgrades())$('upgrade-refresh').focus({preventScroll:true})}
+$('upgrade-refresh').addEventListener('click',refreshUpgrades)
 function updateCombatHud(){
   const s=combat.state;if(!s.active)return
   drawPixelHud({...s,speed:scene.telemetry.speed})
@@ -197,6 +199,7 @@ setViewLabel()
 function setCombat(value) {
   clearInputs();$('upgrade-screen').hidden=true
   if (value && !combat.state.active) {
+    params.view='chase';scene.setParams(params);setViewLabel()
     combat.start(); combatHud.hidden = false; $('radar-wrap').hidden = false;root.classList.add('in-combat')
     $('mode-label').textContent = '海岛飞行队 / 原版肉鸽'; $('combat-toggle').innerHTML = '退出空战 <span>C</span>'
     $('passive-panel').hidden=false;updateCombatHud()
@@ -229,7 +232,7 @@ function setPaused(value) { if(combat.state.selecting||combat.state.over)return;
 
 const FLY = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ShiftLeft: 'boost', ShiftRight: 'boost' }
 window.addEventListener('keydown', e => {
-  if(combat.state.selecting){if(e.repeat||(e.code!=='Tab'&&e.code!=='Enter'))e.preventDefault();if(['Digit1','Digit2','Digit3','Numpad1','Numpad2','Numpad3'].includes(e.code)&&!e.repeat){const u=combat.state.choices[Number(e.code.slice(-1))-1];if(u)selectUpgrade(u.id)}return}
+  if(combat.state.selecting){if(e.repeat||(e.code!=='Tab'&&e.code!=='Enter'))e.preventDefault();if(e.code==='KeyR'&&!e.repeat)refreshUpgrades();if(['Digit1','Digit2','Digit3','Numpad1','Numpad2','Numpad3'].includes(e.code)&&!e.repeat){const u=combat.state.choices[Number(e.code.slice(-1))-1];if(u)selectUpgrade(u.id)}return}
   if (e.target.closest('input,select,a')) return
   if (e.code === 'Escape' && !settings.hidden) { settings.hidden = true; root.focus({preventScroll:true}); return }
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault()

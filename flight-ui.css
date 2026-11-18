@@ -68,3 +68,12 @@
 .flight-stick.engaged{border-color:#f1d09e}.flight-stick.engaged .stick-knob{border-color:#ffe5b5;background:#628e99}
 #flight .touch-controls #tilt-toggle{left:127px;bottom:74px}
 .environment-note{font-size:10px;line-height:1.7;color:#8eacbd;margin:-4px 0 16px}
+
+.upgrade-actions{display:flex;justify-content:center;align-items:center;gap:12px;margin:0 0 15px}
+#upgrade-refresh{border-radius:0;border-color:#8dbbb9;color:#d1eee6;background:#17434d;font-size:12px;padding:8px 18px;min-height:38px}
+#upgrade-refresh:hover,#upgrade-refresh:focus-visible{background:#2d6770;border-color:#ffe4b3}
+.upgrade-actions>small{color:#a4bdc8;font-size:10px}
+#flight.touch .upgrade-actions{gap:8px;margin:0 0 8px}
+#flight.touch #upgrade-refresh{font-size:10px;padding:5px 13px;min-height:30px}
+#flight.touch .upgrade-actions>small{font-size:8px}
+#flight.touch .upgrade-choices{margin-bottom:8px}

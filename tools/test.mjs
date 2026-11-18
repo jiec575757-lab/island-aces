@@ -79,6 +79,22 @@ function fixture(){
  checks.push('Fixed unique three choices, full pause, invalid selection rejected, XP queue and level scaling')
 }
 {
+ const f=fixture();f.park();assert.equal(f.c.refreshUpgrades(),false)
+ f.c.awardXP(185);const snapshot=f.c.state
+ for(let i=0;i<20;i++){
+   const old=f.c.state.choices.map(u=>u.id);assert.equal(f.c.refreshUpgrades(),true)
+   const s=f.c.state;assert.equal(s.choices.length,3);assert.equal(new Set(s.choices.map(u=>u.id)).size,3)
+   assert.ok(s.choices.every(u=>!old.includes(u.id)),'All three refreshed options differ from the prior set')
+   for(const key of ['level','xp','xpNext','pending','hp','ammo','elapsed'])assert.equal(s[key],snapshot[key],key)
+   assert.deepEqual(s.ranks,snapshot.ranks);f.tick(1);assert.equal(f.c.state.elapsed,snapshot.elapsed)
+ }
+ const chosen=f.c.state.choices[1];assert.equal(f.c.chooseUpgrade(chosen.id),true);assert.equal(f.c.state.ranks[chosen.id],1);assert.equal(f.c.state.pending,snapshot.pending-1)
+ assert.equal(f.c.refreshUpgrades(),true,'A queued selection can also be refreshed')
+ while(f.c.state.selecting)f.c.chooseUpgrade(f.c.state.choices[0].id)
+ assert.equal(f.c.refreshUpgrades(),false);f.c.stop();assert.equal(f.c.refreshUpgrades(),false)
+ checks.push('Unlimited free refresh replaces all three unique cards without changing XP, pending levels, ranks or frozen battle; queued selections refresh and applying one card spends exactly one pending level')
+}
+{
  const f=fixture();f.park();f.tick(2);assert.equal(f.c.requestRoll(),true);assert.equal(f.c.damage(30),false);f.tick(.5);assert.equal(f.p.rolling,true);assert.equal(f.c.damage(30),true);assert.equal(f.c.state.hp,70)
  f.p.rolling=false;assert.equal(f.c.requestRoll(),false);f.tick(2.4);assert.equal(f.c.requestRoll(),true)
  checks.push('Timed roll protection is independent from animation and enforced by cooldown')
