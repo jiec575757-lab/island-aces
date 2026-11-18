@@ -31,3 +31,30 @@
 #flight.touch .dialog{padding:19px 25px;width:min(320px,80%)}#flight.touch .dialog h1{font-size:19px;margin:9px 0}#flight.touch .dialog p{font-size:10px;margin:10px 0}#flight.touch .dialog button{padding:8px;min-height:34px;font-size:11px}#flight.touch .result-score{font-size:26px;margin:12px 0}
 @media(max-width:560px){#flight:not(.touch) .combat-hud{left:14px;top:65px;width:288px}#flight:not(.touch) #pixel-hud{width:288px;height:37.5px}}
 @media(max-height:340px){#flight.touch .upgrade-card{min-height:130px}#flight.touch .upgrade-dialog h1{font-size:16px}#flight.touch .upgrade-choices{margin:8px 0}}
+
+/* v1.5: clear upper-left instruments, larger radar and two-hand phone controls. */
+#weather{position:absolute;display:block;pointer-events:none;image-rendering:pixelated;z-index:1}
+#flight.in-combat .identity{display:none}
+#flight.in-combat .topbar{justify-content:flex-end}
+#flight.in-combat .combat-hud{top:max(14px,env(safe-area-inset-top));left:max(20px,env(safe-area-inset-left));height:76px}
+#flight #pixel-hud{height:76px}
+#weather-label{position:absolute;left:180px;top:56px;color:#b8dce3;font-size:11px;text-shadow:1px 1px #061d2b}
+#flight.in-combat .radar-wrap{left:max(22px,env(safe-area-inset-left));right:auto;top:102px;bottom:auto;transform:none;width:130px;height:130px;padding:2px}
+#flight.in-combat .radar-wrap canvas{width:124px;height:124px}
+#flight.in-combat .radar-wrap>span{top:136px;left:-3px;width:134px}
+#flight.in-combat .passive-panel{top:62px}
+#flight.touch.in-combat .combat-hud{top:max(8px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));height:38px}
+#flight.touch #pixel-hud{width:192px;height:38px}
+#flight.touch #weather-label{left:91px;top:27px;font-size:8px;line-height:9px}
+#flight.touch.in-combat .radar-wrap{left:max(14px,env(safe-area-inset-left));right:auto;top:54px;bottom:auto;transform:none;width:96px;height:96px;padding:2px}
+#flight.touch.in-combat .radar-wrap canvas{width:90px;height:90px}
+#flight.touch.in-combat .radar-wrap>span{top:99px;left:-7px;width:108px;font-size:7px}
+#flight.touch.in-combat .passive-panel{top:44px}
+#flight .touch-left{display:grid;grid-template-columns:repeat(2,52px);gap:6px}
+#flight .touch-right{gap:8px;align-self:end}
+#flight .touch-controls #touch-up,#flight .touch-controls #touch-down{width:52px;height:36px;min-height:36px;color:#c0eee8;background:#123a48b3}
+#flight .touch-controls #tilt-toggle{bottom:92px}
+#flight .touch-controls #touch-roll,#flight .touch-controls #touch-boost{width:54px;height:48px;min-height:48px}
+#flight.touch .hint{max-width:46%;font-size:7px;bottom:8px}
+#flight.touch .message{top:60px}
+@media(max-width:560px){#flight:not(.touch).in-combat .combat-hud{top:10px;width:288px;left:14px}#flight:not(.touch) #pixel-hud{width:288px;height:57px}}

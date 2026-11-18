@@ -42,12 +42,12 @@ function fixture(){
  tick(20);assert.equal(c.state.firing,false);assert.equal(c.state.ammo,60);assert.equal(shots(),0)
  c.setFiring(true);tick(5);assert.equal(shots(),0,'Mouse state cannot force automatic fire into empty sky')
  const t=c.targets[0],place=(bearing,d,z=110)=>Object.assign(t,{x:Math.sin(bearing)*d,y:-Math.cos(bearing)*d,z,hp:10000,maxHp:10000,hostile:true,dead:false})
- for(const [bearing,d,z]of [[0,701,110],[Math.PI/2,100,110],[Math.PI,100,110],[.54,200,110],[-.54,200,110],[0,690,300]]){place(bearing,d,z);tick(6);assert.equal(c.state.firing,false);assert.equal(shots(),0,'Outside distance/front cone must not fire')}
- place(0,699);tick(1);assert.equal(c.state.firing,true);assert.equal(shots(),1);assert.ok(c.state.ammo<60)
+ for(const [bearing,d,z]of [[0,421,110],[Math.PI/2,100,110],[Math.PI,100,110],[.33,200,110],[-.33,200,110],[0,410,300]]){place(bearing,d,z);tick(6);assert.equal(c.state.firing,false);assert.equal(shots(),0,'Outside distance/front cone must not fire')}
+ place(0,419);tick(1);assert.equal(c.state.firing,true);assert.equal(shots(),1);assert.ok(c.state.ammo<60)
  c.setFiring(false);assert.equal(c.state.firing,true,'Releasing controls preserves target-triggered fire')
  place(0,200);tick(30);assert.ok(t.hp<10000,'In-range frontal cannon actually hits')
  const ammo=c.state.ammo,shotCount=shots();place(Math.PI,100);tick(15);assert.equal(c.state.firing,false);assert.equal(shots(),shotCount);assert.ok(c.state.ammo>ammo,'Losing target stops fire and restores ammunition')
- for(const bearing of [.51,-.51]){place(bearing,200);const before=shots();tick(6);assert.ok(shots()>before,'Both expanded 30-degree front-cone edges fire')}
+ for(const bearing of [.30,-.30]){place(bearing,200);const before=shots();tick(6);assert.ok(shots()>before,'Both base 18-degree front-cone edges fire')}
  place(0,200);t.hostile=false;const before=shots();tick(6);assert.equal(shots(),before);t.hostile=true;t.dead=true;tick(1);assert.equal(shots(),before)
  // A closer side target must not hide the farther target in front; yaw wraps at ±π.
  const live=c.targets.find(a=>a.hostile&&!a.dead),side=c.targets.find(a=>a!==live);Object.assign(side,{x:60,y:0,z:110});Object.assign(live,{x:0,y:-300,z:110,hp:10000,maxHp:10000});tick(6);assert.ok(shots()>before)
@@ -79,7 +79,7 @@ function fixture(){
 }
 {
  const f=fixture();f.park();const a=f.c.targets[0];Object.assign(a,{x:0,y:-120,z:110,hp:1e6,maxHp:1e6,speed:0,shot:999});f.c.setFiring(true);f.tick(30)
- assert.ok(f.c.state.ammo<2&&a.hp<1e6);f.c.setFiring(false);f.tick(4);assert.ok(f.c.state.ammo>26&&f.c.state.ammo<=60)
+ assert.ok(f.c.state.ammo<2&&a.hp<1e6);f.c.setFiring(false);f.tick(4);assert.ok(f.c.state.ammo>10&&f.c.state.ammo<=60)
  f.c.damage(20);const hp=f.c.state.hp;f.tick(7);assert.equal(f.c.state.hp,hp)
  checks.push('Actual cannon hits, sustained ammo depletion, automatic refill, no default health regeneration')
 }
@@ -90,7 +90,7 @@ function fixture(){
 }
 {
  const f=fixture();f.park();for(const id of ['rapid','speed','damage','crit','critDamage','radar'])f.grant(id)
- const s=f.c.state.stats;assert.ok(s.fireRate>10.5&&s.ammoRegen>7&&s.speed>1&&s.damage>1&&s.critChance>0&&s.critMultiplier>1.6&&s.radarRange>500)
+ const s=f.c.state.stats;assert.ok(s.fireRate>10.5&&s.ammoRegen>3&&s.speed>1&&s.damage>1&&s.critChance>0&&s.critMultiplier>1.6&&s.radarRange>500)
  assert.equal(f.flight.speed,s.speed);assert.ok(f.flight.agility>1.65)
  checks.push('Fire rate, flight speed, cannon damage, critical stats and radar growth apply')
 }
@@ -114,10 +114,10 @@ for(const [id,kind]of [['missile','missile'],['drone','drone'],['secondary','bul
  checks.push('Reduced allied ground support deploys, hits and expires')
 }
 {
- const f=fixture();f.park();for(let i=0;i<8;i++)f.grant('shield');const types=new Set(f.c.targets.filter(a=>a.hostile).map(a=>a.type));for(const type of Object.keys(ENEMIES))assert.ok(types.has(type),type)
+ const f=fixture();f.park();for(let i=0;i<19;i++)f.grant('shield');const types=new Set(f.c.targets.filter(a=>a.hostile).map(a=>a.type));for(const type of Object.keys(ENEMIES))assert.ok(types.has(type),type)
  const base=f.c.targets.find(a=>a.type==='base');Object.assign(base,{x:0,y:-230,z:2,shot:0,sam:0});f.tick(.02)
  const bullets=f.c.effects.filter(e=>e.enemy),cannon=bullets.find(e=>e.kind==='bullet'),sam=bullets.find(e=>e.kind==='missile')
- assert.ok(cannon&&sam);assert.ok(cannon.damage<6);assert.equal(sam.damage,7);assert.ok(base.shot>.8&&base.sam>=6.9)
+ assert.ok(cannon&&sam);assert.ok(cannon.damage<9);assert.equal(sam.damage,7);assert.ok(base.shot>=.4&&base.sam>=3.9)
  f.p.x=100;f.tick(.2);assert.ok(sam.vx>0);assert.ok(sam.pitch>0&&Number.isFinite(sam.pitch))
  checks.push('All elites spawn, low-damage AA cannon and SAM fire with longer intervals; live homing')
 }

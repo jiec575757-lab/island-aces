@@ -34,7 +34,7 @@ const explosions=events.filter(e=>e.type==='detonate').length;step(10);assert.eq
 combat.effects.push({kind:'missile',enemy:true,x:240,y:120,z:140,life:0,maxLife:6});step(1);assert.equal(events.filter(e=>e.type==='detonate').length,explosions,'Flare-cleared missiles do not explode')
 checks.push('Enemy and friendly missed missiles detonate once at their final position on timeout; flares remain safe')
 // Force level-ups through actual upgrade flow: both naval types must enter live encounters.
-for(let i=0;i<8;i++){combat.awardXP(combat.state.xpNext);combat.chooseUpgrade(combat.state.choices[0].id)}
+for(let i=0;i<19;i++){combat.awardXP(combat.state.xpNext);combat.chooseUpgrade(combat.state.choices[0].id)}
 for(const type of ['gunboat','warship']){
   const ship=combat.targets.find(a=>a.type===type);assert.ok(ship,type+' spawns')
   assert.ok(ship.x>=60&&ship.z<3,'Ships spawn only on ocean at sea level')
@@ -51,4 +51,4 @@ combat.targets.filter(a=>a!==ship).forEach(a=>Object.assign(a,{x:650,y:200,shot:
 combat.effects.push({kind:'bullet',enemy:false,x:ship.x,y:ship.y,z:12,px:ship.x,py:ship.y,pz:12,vx:0,vy:0,vz:0,damage:100,life:1,maxLife:1})
 step(1);assert.ok(ship.dead,'Naval hull accepts player fire');assert.ok(combat.state.kills>0);assert.ok(combat.state.xp>0||combat.state.selecting)
 checks.push('Both sea enemies spawn, patrol, fire, accept hull hits and grant XP; frigate launches homing SAMs')
-const report={version:'1.4.0',passed:true,checks};await writeFile(new URL('../artifacts/geometry-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))
+const report={version:'1.5.0',passed:true,checks};await writeFile(new URL('../artifacts/geometry-validation.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))

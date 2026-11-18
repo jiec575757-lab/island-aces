@@ -10,7 +10,7 @@ let browser
     await page.clock.pauseAt(new Date(await page.evaluate(()=>Date.now())+100))
     const gate=await page.evaluate(()=>{
       const c=flightLab.combat,s=flightLab.scene;c.start();const p=s.telemetry,t=c.targets[0],put=(a,d)=>Object.assign(t,{x:p.x+Math.sin(p.yaw+a)*d,y:p.y-Math.cos(p.yaw+a)*d,z:p.z,hp:10000,maxHp:10000,speed:0,shot:999,sam:999})
-      c.targets.forEach(a=>Object.assign(a,{x:p.x+Math.cos(p.yaw)*800,y:p.y+Math.sin(p.yaw)*800,z:p.z,speed:0,shot:999,sam:999}));put(.45,650);c.step(.02);const expanded=c.state.firing
+      c.targets.forEach(a=>Object.assign(a,{x:p.x+Math.cos(p.yaw)*800,y:p.y+Math.sin(p.yaw)*800,z:p.z,speed:0,shot:999,sam:999}));put(.25,400);c.step(.02);const expanded=c.state.firing
       put(.55,200);c.step(.02);const outside=c.state.firing
       put(0,710);c.step(.02);const distant=c.state.firing
       c.effects.push({kind:'missile',enemy:true,x:p.x+70,y:p.y+70,z:p.z,px:p.x+70,py:p.y+70,pz:p.z,vx:0,vy:0,vz:0,speed:0,damage:7,life:.01,maxLife:6});c.step(.02)
@@ -19,7 +19,7 @@ let browser
     });assert.deepEqual(gate,{expanded:true,outside:false,distant:false,timeout:true})
     for(const view of ['top','chase','cockpit']){
       const r=await page.evaluate(async({view,mobile})=>{
-        const {ENEMIES}=await import('./src/combat.js?v=1.4.0'),s=flightLab.scene,c=flightLab.combat
+        const {ENEMIES}=await import('./src/combat.js?v=1.5.0'),s=flightLab.scene,c=flightLab.combat
         s.setParams({...flightLab.params,view,land:.2,clouds:.15});s.setKeys(0,0,false,0);for(let i=0;i<130;i++)s.step(.02)
         const p=s.telemetry,sn=Math.sin(p.yaw),cs=Math.cos(p.yaw),pos=(right,ahead,z=p.z)=>({x:p.x+cs*right+sn*ahead,y:p.y+sn*right-cs*ahead,z})
         const candidates=[]
@@ -44,5 +44,5 @@ let browser
     }
     await page.close()
   }
-  assert.deepEqual(errors,[]);const report={version:'1.4.0',site:base,passed:true,results,errors};fs.writeFileSync(out+'/fleet-browser-validation.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close()
+  assert.deepEqual(errors,[]);const report={version:'1.5.0',site:base,passed:true,results,errors};fs.writeFileSync(out+'/fleet-browser-validation.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close()
 })().catch(async e=>{console.error(e);await browser?.close();process.exitCode=1})

@@ -8,7 +8,7 @@
 // Two views share one camera: the overhead sprite-stack view, and a chase view from behind
 // the jet. The camera slides between them, so the switch is a single continuous move.
 
-import { UNIT_MODELS, UNIT_STYLES } from './unit-models.js?v=1.4.0'
+import { UNIT_MODELS, UNIT_STYLES } from './unit-models.js?v=1.5.0'
 import { buildVoxelMesh } from './voxel-mesh.js'
 import { drawVoxelMesh } from './voxel-renderer.js'
 const combatMeshes=Object.fromEntries(Object.entries(UNIT_MODELS).map(([id,voxels])=>[id,buildVoxelMesh(voxels)]))
@@ -642,6 +642,7 @@ export function createScene(initial) {
   let combatActors = []
   let combatEffects = []
   let combatFlight = null
+  let weatherCover=0
   let viewportScale = 1
   let combatMarkers = 0
   let colY = new Int32Array(0) // per screen column: the highest row the ground has reached
@@ -1293,7 +1294,7 @@ export function createScene(initial) {
     const A = cam.alt
     const bx = cam.x - Math.floor(cam.x / N) * N + N * 2
     const by = cam.y - Math.floor(cam.y / N) * N + N * 2
-    const rankMax = Math.round(clamp(p.clouds, 0, 1) * 16)
+    const rankMax = Math.round(clamp(p.clouds+weatherCover, 0, 1) * 16)
     const cloudsOn = rankMax > 0
     const cdx = (time * 7) % NC
     const cdy = (time * 3) % NC
@@ -2279,6 +2280,7 @@ export function createScene(initial) {
   return {
     setCombat(actors, effects) { combatActors = actors; combatEffects = effects },
     setCombatFlight(value) { combatFlight = value },
+    setWeather(value) { weatherCover=value?.clouds||0 },
     setViewportScale(value) { viewportScale = clamp(value,.5,1) },
     get combatIndicators() { return combatMarkers },
     get combatGeometry() { return {faces:combatFaces} },
