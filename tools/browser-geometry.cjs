@@ -19,7 +19,7 @@ let browser
     });assert.deepEqual(gate,{expanded:true,outside:false,distant:false,timeout:true})
     for(const view of ['top','chase','cockpit']){
       const r=await page.evaluate(async({view,mobile})=>{
-        const {ENEMIES}=await import('./src/combat.js?v=1.6.2'),s=flightLab.scene,c=flightLab.combat
+        const {ENEMIES}=await import('./src/combat.js?v=1.6.3'),s=flightLab.scene,c=flightLab.combat
         s.setParams({...flightLab.params,view,land:.2,clouds:.15});s.setKeys(0,0,false,0);for(let i=0;i<130;i++)s.step(.02)
         const p=s.telemetry,sn=Math.sin(p.yaw),cs=Math.cos(p.yaw),pos=(right,ahead,z=p.z)=>({x:p.x+cs*right+sn*ahead,y:p.y+sn*right-cs*ahead,z})
         const candidates=[]
@@ -44,5 +44,5 @@ let browser
     }
     await page.close()
   }
-  assert.deepEqual(errors,[]);const report={version:'1.6.2',site:base,passed:true,results,errors};fs.writeFileSync(out+'/fleet-browser-validation.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close()
+  assert.deepEqual(errors,[]);const report={version:'1.6.3',site:base,passed:true,results,errors};fs.writeFileSync(out+'/fleet-browser-validation.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close()
 })().catch(async e=>{console.error(e);await browser?.close();process.exitCode=1})

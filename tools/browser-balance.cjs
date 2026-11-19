@@ -7,7 +7,7 @@ let browser
   for(const mobile of [false,true]){
     const page=await browser.newPage({viewport:mobile?{width:844,height:390}:{width:1280,height:800},isMobile:mobile,hasTouch:mobile})
     page.on('pageerror',e=>errors.push(e.message));await page.clock.install()
-    const url=new URL(base);url.searchParams.set('inspect','');url.searchParams.set('v','1.6.2')
+    const url=new URL(base);url.searchParams.set('inspect','');url.searchParams.set('v','1.6.3')
     let ready=false,lastError
     for(let attempt=0;attempt<3;attempt++)try{
       const response=await page.goto(url.href,{waitUntil:'domcontentloaded',timeout:20000})
@@ -18,7 +18,7 @@ let browser
     await page.locator('#combat-toggle').click();assert.equal(await page.evaluate(()=>flightLab.params.view),'chase')
     await page.clock.pauseAt(new Date(await page.evaluate(()=>Date.now())+50))
     const result=await page.evaluate(async()=>{
-      const {createCombat,ENEMIES}=await import('./src/combat.js?v=1.6.2'),scene=flightLab.scene
+      const {createCombat,ENEMIES}=await import('./src/combat.js?v=1.6.3'),scene=flightLab.scene
       const c=createCombat(scene,()=>{},()=>.001,{autoFire:false});c.start()
       const park=()=>{const p=scene.telemetry;c.targets.forEach(a=>{if(a.hostile)Object.assign(a,{x:p.x+650+a.id%28,y:p.y,z:a.ground||a.marine?2:p.z,speed:0,shot:999,sam:999})})}
       const verify=()=>{
@@ -56,6 +56,6 @@ let browser
     results.push({mobile,...result});await page.close()
   }
   assert.deepEqual(errors,[])
-  const report={version:'1.6.2',date:new Date().toISOString(),site:base,passed:true,checks:['Desktop and phone served modules: 30 levels and 60 waves each, maximum three heavy fighters, all enemy HP and damage fixed','Actual grade 1/7/13/19/25 cannon volleys contain 1/2/3/4/5 bullets with unchanged 8 damage; measured flight and projectile speeds increase'],results,errors}
+  const report={version:'1.6.3',date:new Date().toISOString(),site:base,passed:true,checks:['Desktop and phone served modules: 30 levels and 60 waves each, maximum three heavy fighters, all enemy HP and damage fixed','Actual grade 1/7/13/19/25 cannon volleys contain 1/2/3/4/5 bullets with unchanged 8 damage; measured flight and projectile speeds increase'],results,errors}
   fs.writeFileSync(process.env.ISLAND_REPORT||__dirname+'/../artifacts/balance-browser-validation.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close()
 })().catch(async e=>{console.error(e);await browser?.close();process.exitCode=1})

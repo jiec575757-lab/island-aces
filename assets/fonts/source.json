@@ -1,0 +1,12 @@
+{
+  "family": "Fusion Pixel 12px Proportional",
+  "locale": "zh_hans",
+  "version": "2026.11.10",
+  "project": "https://github.com/TakWolf/fusion-pixel-font",
+  "release": "https://github.com/TakWolf/fusion-pixel-font/releases/download/2026.11.10/fusion-pixel-font-12px-proportional-otf.woff2-v2026.11.10.zip",
+  "license": "SIL Open Font License 1.1",
+  "files": {
+    "fusion-pixel-12px-proportional-latin.otf.woff2": "8e88d527567dad57c7797b68000b7564ac5d7960206ef35d9833ca5466cecd44",
+    "fusion-pixel-12px-proportional-zh_hans.otf.woff2": "4f0ccc75b874c97b79d0cbfa5babcd51d1fdc7da5be4ddc7f2895ccae3bc301d"
+  }
+}

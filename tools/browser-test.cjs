@@ -127,5 +127,5 @@ let browser;
  for(const file of ['README.md','制作说明.md','肉鸽玩法说明.md'])assert.equal((await page.request.get(base+encodeURI(file))).status(),200);
  checks.push('Interactive model inspector, MagicaVoxel and PNG/JSON assets');
  assert.deepEqual(errors,[]);assert.deepEqual(bad,[]);assert.deepEqual(external,[]);
- const result={date:new Date().toISOString(),version:'1.6.2',base:'1.0.0',checks,errors,bad,external,passed:true};fs.writeFileSync(out+'/validation.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));await browser.close();
+ const result={date:new Date().toISOString(),version:'1.6.3',base:'1.0.0',checks,errors,bad,external,passed:true};fs.writeFileSync(out+'/validation.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));await browser.close();
 })().catch(async e=>{console.error(e);await browser?.close();process.exitCode=1});
